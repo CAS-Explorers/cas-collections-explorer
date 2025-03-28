@@ -65,5 +65,8 @@ export default defineSchema({
     })
     .searchIndex("search_collectors", {
       searchField: "collectors",
+    })
+    .searchIndex("search_state", {
+      searchField: "state",
     }),
 });

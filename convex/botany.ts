@@ -30,7 +30,7 @@ export const searchPlants = query({
       return await ctx.db.query("botany").take(limit);
     }
 
-    const [byName, byCollectors, byCountry] = await Promise.all([
+    const [byName, byCollectors, byCountry, byState] = await Promise.all([
       ctx.db
         .query("botany")
         .withSearchIndex("search_fullName", (q) => q.search("fullName", query))
@@ -45,10 +45,14 @@ export const searchPlants = query({
         .query("botany")
         .withSearchIndex("search_country", (q) => q.search("country", query))
         .take(limit),
+      ctx.db
+        .query("botany")
+        .withSearchIndex("search_state", (q) => q.search("state", query))
+        .take(limit),
     ]);
     // Combine and deduplicate results
     const seen = new Set();
-    return [...byName, ...byCollectors, ...byCountry]
+    return [...byName, ...byCollectors, ...byCountry, ...byState]
       .filter((plant) => {
         if (seen.has(plant._id.toString())) return false;
         seen.add(plant._id.toString());
