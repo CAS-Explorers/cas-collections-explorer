@@ -20,44 +20,57 @@ export const getPlantById = query({
 
 export const searchPlants = query({
   args: {
-    query: v.string(),
+    query: v.array(
+      v.object({
+        id: v.number(),
+        index: v.string(),
+        value: v.string(),
+      }),
+    ),
     limit: v.number(),
   },
   handler: async (ctx, args) => {
     const { query, limit } = args;
 
-    if (!query.trim()) {
+    if (!query || query.length === 0) {
       return await ctx.db.query("botany").take(limit);
     }
 
-    const [byName, byCollectors, byCountry, byState] = await Promise.all([
-      ctx.db
+    type validTypes =
+      | "search_fullName"
+      | "search_country"
+      | "search_collectors"
+      | "search_state";
+
+    type validIndices = "collectors" | "country" | "fullName" | "state";
+
+    const searchPromises = query.map(({ index, value }) => {
+      const indexName = `search_${index}` as validTypes;
+      if (!indexName || !value.trim()) return Promise.resolve([]);
+      return ctx.db
         .query("botany")
-        .withSearchIndex("search_fullName", (q) => q.search("fullName", query))
-        .take(limit),
-      ctx.db
-        .query("botany")
-        .withSearchIndex("search_collectors", (q) =>
-          q.search("collectors", query),
+        .withSearchIndex(indexName, (q) =>
+          q.search(index as validIndices, value),
         )
-        .take(limit),
-      ctx.db
-        .query("botany")
-        .withSearchIndex("search_country", (q) => q.search("country", query))
-        .take(limit),
-      ctx.db
-        .query("botany")
-        .withSearchIndex("search_state", (q) => q.search("state", query))
-        .take(limit),
-    ]);
-    // Combine and deduplicate results
+        .take(limit);
+    });
+
+    const results = await Promise.all(searchPromises);
+
     const seen = new Set();
-    return [...byName, ...byCollectors, ...byCountry, ...byState]
-      .filter((plant) => {
-        if (seen.has(plant._id.toString())) return false;
-        seen.add(plant._id.toString());
-        return true;
-      })
-      .slice(0, limit);
+    const combined = [];
+    for (const group of results) {
+      for (const plant of group) {
+        const id = plant._id.toString();
+        if (!seen.has(id)) {
+          seen.add(id);
+          combined.push(plant);
+        }
+        if (combined.length >= limit) break;
+      }
+      if (combined.length >= limit) break;
+    }
+
+    return combined;
   },
 });

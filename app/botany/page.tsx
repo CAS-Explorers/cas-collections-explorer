@@ -1,6 +1,5 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,63 +7,56 @@ import { Input } from "@/components/ui/input";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
-import { FilterSheet } from "@/components/botany/filter-sheet";
 
 export default function Botany() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("query") || "";
 
-  const [query, setQuery] = useState(initialQuery);
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [isSearching, setIsSearching] = useState(!!initialQuery);
+  const [searchRules, setSearchRules] = useState([
+    { id: 1, index: "fullName", value: "" },
+  ]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // Handle search query from URL
-  useEffect(() => {
-    const q = searchParams.get("q");
-    if (q) {
-      setQuery(q);
-      setSearchQuery(q);
-      setIsSearching(true);
-    }
-  }, [searchParams]);
-
-  // Default plants query
   const defaultPlants = useQuery(api.botany.getPlants, { qty: 30 });
-  // Search query
-  const searchResults = useQuery(
+  const searchQueryPlants = useQuery(
     api.botany.searchPlants,
     isSearching
       ? {
-          query: searchQuery,
           limit: 30,
+          query: searchRules,
         }
       : "skip",
   );
 
-  const plantsToShow = isSearching ? searchResults : defaultPlants;
+  const plantsToShow = isSearching ? searchQueryPlants : defaultPlants;
 
   const handleSearch = () => {
-    if (query.trim()) {
-      setSearchQuery(query);
-      setIsSearching(true);
-      router.push(`/botany?query=${encodeURIComponent(query)}`);
+    const validRules = searchRules.filter((r) => r.value.trim());
+    if (validRules.length === 0) {
+      setIsSearching(false);
+      router.push("/botany");
+      return;
     }
-  };
 
-  const clearSearch = () => {
-    setIsSearching(false);
-    setSearchQuery("");
-    setQuery("");
-    router.push("/botany");
+    setIsSearching(true);
+    const encoded = encodeURIComponent(JSON.stringify(validRules));
+    router.push(`/botany?query=${encoded}`);
   };
 
   useEffect(() => {
-    if (initialQuery) {
-      setSearchQuery(initialQuery);
-      setIsSearching(true);
+    const q = searchParams.get("query");
+    if (q) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(q));
+        setSearchRules(parsed);
+        setIsSearching(true);
+      } catch {
+        setIsSearching(false);
+      }
+    } else {
+      setIsSearching(false);
     }
-  }, [initialQuery]);
+  }, [searchParams]);
 
   const render = () => {
     return (
@@ -79,32 +71,86 @@ export default function Botany() {
 
   const renderSearch = () => {
     const renderSearchInputAndButton = () => {
+      const handleRuleChange = (id: number, key: string, newValue: string) => {
+        setIsSearching(false);
+        setSearchRules((rules) =>
+          rules.map((rule) =>
+            rule.id === id ? { ...rule, [key]: newValue } : rule,
+          ),
+        );
+      };
+
+      const addSearchRule = () => {
+        setSearchRules((rules) => [
+          ...rules,
+          { id: Date.now(), index: "fullName", value: "" },
+        ]);
+      };
+
+      const removeSearchRule = (id: number) => {
+        setSearchRules((rules) => rules.filter((rule) => rule.id !== id));
+      };
+
+      const clearSearch = () => {
+        setIsSearching(false);
+        setSearchRules([{ id: 1, index: "fullName", value: "" }]);
+        router.push("/botany");
+      };
+
       return (
-        <div className="relative flex-1">
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-xl blur-xl group-hover:blur-2xl transition duration-500"></div>
-            <Input
-              type="text"
-              placeholder="Search botanical specimens..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSearch();
+        <div className="flex flex-col gap-3 w-full">
+          {searchRules.map((rule) => (
+            <div key={rule.id} className="flex gap-2 items-center">
+              <select
+                value={rule.index}
+                onChange={(e) =>
+                  handleRuleChange(rule.id, "index", e.target.value)
                 }
-              }}
-              className="relative w-full pl-4 pr-10 py-6 text-lg rounded-lg bg-white/80 backdrop-blur-sm border-green-600/20 hover:border-green-600/30 transition-colors duration-300 placeholder:text-gray-400"
-            />
+                className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
+              >
+                <option value="fullName">Full Name</option>
+                <option value="country">Country</option>
+                <option value="collectors">Collectors</option>
+                <option value="state">State</option>
+              </select>
+              <Input
+                value={rule.value}
+                placeholder={`Search ${rule.index}...`}
+                onChange={(e) =>
+                  handleRuleChange(rule.id, "value", e.target.value)
+                }
+                className="flex-1"
+              />
+              {searchRules.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSearchRule(rule.id)}
+                >
+                  ✕
+                </Button>
+              )}
+            </div>
+          ))}
+          <div className="flex gap-3">
+            <Button
+              onClick={addSearchRule}
+              variant="outline"
+              className="text-green-700"
+            >
+              + Add Search Rule
+            </Button>
+            <Button onClick={handleSearch}>Search</Button>
+            {isSearching && (
+              <Button
+                onClick={clearSearch}
+                variant="ghost"
+                className="text-red-600"
+              >
+                Clear Search
+              </Button>
+            )}
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={handleSearch}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 cursor-pointer hover:bg-green-50 transition-colors duration-300"
-          >
-            <Search className="h-5 w-5 text-green-700" />
-          </Button>
         </div>
       );
     };
@@ -127,14 +173,7 @@ export default function Botany() {
         </div>
 
         <div className="max-w-2xl mx-auto mb-8">
-          <div className="flex gap-3">
-            {renderSearchInputAndButton()}
-            <FilterSheet
-              onApplyFilters={(filters) => {
-                console.log("Applied filters:", filters);
-              }}
-            />
-          </div>
+          <div className="flex gap-3">{renderSearchInputAndButton()}</div>
         </div>
       </div>
     );
@@ -152,16 +191,7 @@ export default function Botany() {
             </span>{" "}
             specimens
             {isSearching && (
-              <>
-                {" "}
-                for <span className="text-green-700">{`"${searchQuery}"`}</span>
-                <button
-                  onClick={clearSearch}
-                  className="ml-2 text-sm text-green-600 hover:text-green-700 underline"
-                >
-                  Clear search
-                </button>
-              </>
+              <span className="ml-2 text-gray-500">(Filtered results)</span>
             )}
           </div>
         )}
