@@ -1,62 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
+import { useConvex } from "convex/react";
+import { Doc } from "@/convex/_generated/dataModel";
 
 export default function Botany() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const convex = useConvex();
 
   const [searchRules, setSearchRules] = useState([
     { id: 1, index: "fullName", value: "" },
   ]);
   const [isSearching, setIsSearching] = useState(false);
+  const [results, setResults] = useState<Doc<"botany">[]>([]);
 
-  const defaultPlants = useQuery(api.botany.getPlants, { qty: 30 });
-  const searchQueryPlants = useQuery(
-    api.botany.searchPlants,
-    isSearching
-      ? {
-          limit: 30,
-          query: searchRules,
-        }
-      : "skip",
+  const fetchResults = useCallback(
+    async (rules: typeof searchRules) => {
+      const validRules = rules.filter((r) => r.value.trim());
+      const searchResults = await convex.query(api.botany.searchPlants, {
+        limit: 30,
+        query: validRules,
+      });
+      setResults(searchResults);
+    },
+    [convex],
   );
 
-  const plantsToShow = isSearching ? searchQueryPlants : defaultPlants;
-
-  const handleSearch = () => {
-    const validRules = searchRules.filter((r) => r.value.trim());
-    if (validRules.length === 0) {
-      setIsSearching(false);
-      router.push("/botany");
-      return;
-    }
-
-    setIsSearching(true);
-    const encoded = encodeURIComponent(JSON.stringify(validRules));
+  const handleSearch = useCallback(async () => {
+    const encoded = encodeURIComponent(JSON.stringify(searchRules));
     router.push(`/botany?query=${encoded}`);
-  };
+  }, [searchRules, router]);
 
+  // Handle URL search params
   useEffect(() => {
-    const q = searchParams.get("query");
-    if (q) {
+    const query = searchParams.get("query");
+    if (query) {
       try {
-        const parsed = JSON.parse(decodeURIComponent(q));
+        const parsed = JSON.parse(decodeURIComponent(query));
         setSearchRules(parsed);
-        setIsSearching(true);
+        fetchResults(parsed);
       } catch {
-        setIsSearching(false);
+        fetchResults([{ id: 1, index: "fullName", value: "" }]);
       }
     } else {
-      setIsSearching(false);
+      fetchResults([{ id: 1, index: "fullName", value: "" }]);
     }
-  }, [searchParams]);
+  }, [searchParams, fetchResults]);
 
   const render = () => {
     return (
@@ -183,12 +178,10 @@ export default function Botany() {
     return (
       <div className="relative">
         {/* Results count */}
-        {plantsToShow && plantsToShow.length > 0 && (
+        {results && results.length > 0 && (
           <div className="mb-6 text-gray-600">
             Showing{" "}
-            <span className="font-medium text-green-700">
-              {plantsToShow.length}
-            </span>{" "}
+            <span className="font-medium text-green-700">{results.length}</span>{" "}
             specimens
             {isSearching && (
               <span className="ml-2 text-gray-500">(Filtered results)</span>
@@ -197,15 +190,7 @@ export default function Botany() {
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-fr">
-          {plantsToShow === undefined ? (
-            <div className="col-span-full flex justify-center py-16">
-              <div className="animate-pulse text-gray-500 flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-              </div>
-            </div>
-          ) : plantsToShow.length === 0 ? (
+          {results === undefined || results.length === 0 ? (
             <div className="col-span-full text-center py-16">
               <div className="text-gray-500 space-y-2">
                 <p className="text-lg">
@@ -217,9 +202,7 @@ export default function Botany() {
               </div>
             </div>
           ) : (
-            plantsToShow.map((plant) => (
-              <BotanyCard key={plant._id} plant={plant} />
-            ))
+            results.map((plant) => <BotanyCard key={plant._id} plant={plant} />)
           )}
         </div>
       </div>
