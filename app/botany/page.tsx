@@ -17,7 +17,6 @@ export default function Botany() {
   const [searchRules, setSearchRules] = useState([
     { id: 1, index: "fullName", value: "" },
   ]);
-  const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<Doc<"botany">[]>([]);
 
   const fetchResults = useCallback(
@@ -53,6 +52,13 @@ export default function Botany() {
     }
   }, [searchParams, fetchResults]);
 
+  // Add this handler for key press
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
   const render = () => {
     return (
       <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
@@ -67,7 +73,6 @@ export default function Botany() {
   const renderSearch = () => {
     const renderSearchInputAndButton = () => {
       const handleRuleChange = (id: number, key: string, newValue: string) => {
-        setIsSearching(false);
         setSearchRules((rules) =>
           rules.map((rule) =>
             rule.id === id ? { ...rule, [key]: newValue } : rule,
@@ -84,12 +89,6 @@ export default function Botany() {
 
       const removeSearchRule = (id: number) => {
         setSearchRules((rules) => rules.filter((rule) => rule.id !== id));
-      };
-
-      const clearSearch = () => {
-        setIsSearching(false);
-        setSearchRules([{ id: 1, index: "fullName", value: "" }]);
-        router.push("/botany");
       };
 
       return (
@@ -114,6 +113,7 @@ export default function Botany() {
                 onChange={(e) =>
                   handleRuleChange(rule.id, "value", e.target.value)
                 }
+                onKeyDown={handleKeyPress}
                 className="flex-1"
               />
               {searchRules.length > 1 && (
@@ -127,7 +127,7 @@ export default function Botany() {
               )}
             </div>
           ))}
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-between">
             <Button
               onClick={addSearchRule}
               variant="outline"
@@ -136,15 +136,6 @@ export default function Botany() {
               + Add Search Rule
             </Button>
             <Button onClick={handleSearch}>Search</Button>
-            {isSearching && (
-              <Button
-                onClick={clearSearch}
-                variant="ghost"
-                className="text-red-600"
-              >
-                Clear Search
-              </Button>
-            )}
           </div>
         </div>
       );
@@ -183,9 +174,6 @@ export default function Botany() {
             Showing{" "}
             <span className="font-medium text-green-700">{results.length}</span>{" "}
             specimens
-            {isSearching && (
-              <span className="ml-2 text-gray-500">(Filtered results)</span>
-            )}
           </div>
         )}
 
@@ -193,9 +181,7 @@ export default function Botany() {
           {results === undefined || results.length === 0 ? (
             <div className="col-span-full text-center py-16">
               <div className="text-gray-500 space-y-2">
-                <p className="text-lg">
-                  No specimens found matching your search.
-                </p>
+                <p className="text-lg">No results found.</p>
                 <p className="text-sm">
                   Try adjusting your search terms or filters.
                 </p>
