@@ -71,7 +71,7 @@ const GlobalSearch: React.FC = () => {
           </h1>
           
           <p className="text-xl text-white mb-10 animation-delay-200 animate-slide-up max-w-2xl mx-auto text-balance drop-shadow-lg">
-            Access and explore millions of species records from around the world with an intuitive, beautifully designed interface.
+            Access and discover millions of species records from around the world with an intuitive, beautifully designed interface.
           </p>
           
           <div className="mb-12 animation-delay-400 animate-slide-up">
