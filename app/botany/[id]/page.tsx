@@ -4,12 +4,44 @@ import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { extractImageUrl } from "@/lib/utils";
 import { Calendar, MapPin } from "lucide-react";
+import L from "leaflet";
+
+// Fix for default marker icons in Leaflet with Next.js
+const DefaultIcon = L.icon({
+  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Component to handle map view changes
+function MapController({
+  center,
+  zoom,
+}: {
+  center: [number, number];
+  zoom: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23f3f4f6'/%3E%3Cpath d='M15 25h10M10 15h20' stroke='%239ca3af' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E";
@@ -19,13 +51,25 @@ export default function PlantPage() {
   const plantId = params.id as Id<"botany">;
   const [selectedImage, setSelectedImage] = useState(0);
   const [imageSrc, setImageSrc] = useState("/cal_academy.png");
+  const [mapCenter, setMapCenter] = useState<[number, number]>([37.8, -122.4]);
+  const [mapZoom, setMapZoom] = useState(1);
 
   const plant = useQuery(api.botany.getPlantById, { id: plantId });
+  console.log(plant);
 
   useEffect(() => {
     if (plant && plant.img && plant.img.length > 0) {
       const url = extractImageUrl(plant.img, "500");
       if (url) setImageSrc(url);
+    }
+  }, [plant]);
+
+  useEffect(() => {
+    if (plant?.latitude1 && plant?.longitude1) {
+      const lat = parseFloat(plant.latitude1.toString());
+      const lng = parseFloat(plant.longitude1.toString());
+      setMapCenter([lat, lng]);
+      setMapZoom(10);
     }
   }, [plant]);
 
@@ -221,6 +265,35 @@ export default function PlantPage() {
                 <div className="col-span-2">
                   <p className="text-sm text-muted-foreground">Locality</p>
                   <p className="font-medium">{plant.localityName}</p>
+                </div>
+
+                <div className="col-span-2 h-[300px] rounded-lg overflow-hidden">
+                  {plant.latitude1 && plant.longitude1 ? (
+                    <MapContainer
+                      center={mapCenter}
+                      zoom={mapZoom}
+                      style={{ height: "100%", width: "100%" }}
+                      scrollWheelZoom={false}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <Marker
+                        position={[
+                          parseFloat(plant.latitude1.toString()),
+                          parseFloat(plant.longitude1.toString()),
+                        ]}
+                      />
+                      <MapController center={mapCenter} zoom={mapZoom} />
+                    </MapContainer>
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <p className="text-muted-foreground">
+                        No location data available
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
