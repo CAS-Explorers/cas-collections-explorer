@@ -20,7 +20,7 @@ const categories: ExploreCategory[] = [
     description: 'Discover flowering plants, trees, ferns, and other flora.',
     icon: '🌿',
     color: 'bg-emerald-50 border-emerald-200 text-emerald-900',
-    count: 48157,
+    count: 47421,
     path: '/botany'
   },
   {
