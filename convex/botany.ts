@@ -44,12 +44,6 @@ export const searchPlants = query({
     // Start with the first rule
     const firstRule = validRules[0];
     const indexName = `search_${firstRule.index}` as validTypes;
-    // let results = await ctx.db
-    //   .query("botany")
-    //   .withSearchIndex(indexName, (q) =>
-    //     q.search(firstRule.index as validIndices, firstRule.value),
-    //   )
-    //   .take(limit * 2); // Take more initially to allow for filtering
 
     let searchValue = firstRule.value;
     if (firstRule.index === "country") {
@@ -72,7 +66,6 @@ export const searchPlants = query({
       const currentIndex = rule.index as validIndices;
       let searchTerm = rule.value.toLowerCase().trim();
 
-      // NEW: Handle country code search for subsequent rules
       if (rule.index === "country") {
         const countryName = getCountryFromCode(rule.value);
         if (countryName) {
@@ -89,16 +82,5 @@ export const searchPlants = query({
     }
 
     return results.slice(0, limit);
-
-    //   results = results.filter((plant) => {
-    //     const fieldValue = String(plant[currentIndex]).toLowerCase();
-    //     return fieldValue.includes(searchTerm);
-    //   });
-
-    //   if (results.length === 0) break;
-    // }
-
-    // // Return only up to the limit
-    // return results.slice(0, limit);
   },
 });
