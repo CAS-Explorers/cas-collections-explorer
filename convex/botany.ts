@@ -1,3 +1,4 @@
+import { getCountryFromCode } from "../utils/countryUtils";
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -43,18 +44,41 @@ export const searchPlants = query({
     // Start with the first rule
     const firstRule = validRules[0];
     const indexName = `search_${firstRule.index}` as validTypes;
+    // let results = await ctx.db
+    //   .query("botany")
+    //   .withSearchIndex(indexName, (q) =>
+    //     q.search(firstRule.index as validIndices, firstRule.value),
+    //   )
+    //   .take(limit * 2); // Take more initially to allow for filtering
+
+    let searchValue = firstRule.value;
+    if (firstRule.index === "country") {
+      const countryName = getCountryFromCode(firstRule.value);
+      if (countryName) {
+        searchValue = countryName;
+      }
+    }
+
     let results = await ctx.db
       .query("botany")
       .withSearchIndex(indexName, (q) =>
-        q.search(firstRule.index as validIndices, firstRule.value),
+        q.search(firstRule.index as validIndices, searchValue),
       )
-      .take(limit * 2); // Take more initially to allow for filtering
+      .take(limit * 2);
 
     // Filter results through each subsequent rule
     for (let i = 1; i < validRules.length; i++) {
       const rule = validRules[i];
       const currentIndex = rule.index as validIndices;
-      const searchTerm = rule.value.toLowerCase().trim();
+      let searchTerm = rule.value.toLowerCase().trim();
+
+      // NEW: Handle country code search for subsequent rules
+      if (rule.index === "country") {
+        const countryName = getCountryFromCode(rule.value);
+        if (countryName) {
+          searchTerm = countryName.toLowerCase();
+        }
+      }
 
       results = results.filter((plant) => {
         const fieldValue = String(plant[currentIndex]).toLowerCase();
@@ -64,7 +88,17 @@ export const searchPlants = query({
       if (results.length === 0) break;
     }
 
-    // Return only up to the limit
     return results.slice(0, limit);
+
+    //   results = results.filter((plant) => {
+    //     const fieldValue = String(plant[currentIndex]).toLowerCase();
+    //     return fieldValue.includes(searchTerm);
+    //   });
+
+    //   if (results.length === 0) break;
+    // }
+
+    // // Return only up to the limit
+    // return results.slice(0, limit);
   },
 });

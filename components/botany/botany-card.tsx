@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { extractImageUrl } from "@/lib/utils";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useState } from "react";
-import { getCountryEmoji } from "@/utils/countryEmojis";
+import { getCountryEmoji } from "@/utils/countryUtils";
 import { Calendar, MapPin, Tag } from "lucide-react";
 
 type Plant = Doc<"botany">;
