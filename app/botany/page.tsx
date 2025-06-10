@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,8 @@ interface LocalSearchRule {
   value: string;
   numericFilter?: {
     type: NumericFilterType;
-    value: string;
-    secondValue?: string;
+    value: string; 
+    secondValue?: string; 
   };
   textFilter?: {
     type: TextFilterType;
@@ -99,10 +99,10 @@ export default function Botany() {
     { initialNumItems: RESULTS_PER_PAGE }
   );
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     // The search will be triggered automatically by the usePaginatedQuery hook
     // when searchRules changes
-  };
+  }, []); // Empty dependency array since this function doesn't depend on any values
 
   // Handle URL search params
   useEffect(() => {
@@ -330,7 +330,7 @@ export default function Botany() {
                     <option value="contains_any">Contains Any</option>
                     <option value="in">In</option>
                   </select>
-                  <Input
+                <Input
                     type="text"
                     value={rule.textFilter?.value ?? ""}
                     placeholder={rule.textFilter?.type === "in" ? "Enter values (comma-separated)..." : `Search ${rule.index}...`}
@@ -342,8 +342,8 @@ export default function Botany() {
                         rule.textFilter?.secondValue
                       );
                     }}
-                    className="flex-1"
-                  />
+                  className="flex-1"
+                />
                 </div>
               )}
 
