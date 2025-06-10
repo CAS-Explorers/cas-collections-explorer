@@ -57,6 +57,8 @@ export default defineSchema({
     value: v.number(),
   }),
   botany: defineTable(Plant)
+    .index("by_longitude", ["longitude1"])
+    .index("by_latitude", ["latitude1"])
     .searchIndex("search_fullName", {
       searchField: "fullName",
     })
@@ -70,3 +72,4 @@ export default defineSchema({
       searchField: "state",
     }),
 });
+//contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.

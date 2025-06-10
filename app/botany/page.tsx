@@ -8,33 +8,109 @@ import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useConvex } from "convex/react";
 import { Doc } from "@/convex/_generated/dataModel";
+import { usePaginatedQuery } from "convex/react";
+import { Id } from "../../convex/_generated/dataModel";
+import { SearchRule } from "@/convex/botany";
+
+// Types for numeric comparisons
+type NumericFilterType = "=" | "before" | "after" | "between";
+
+// Types for text comparisons
+type TextFilterType = "=" | "contains" | "contains_any" | "in";
+
+// Interface for a search rule
+interface LocalSearchRule {
+  id: number;
+  index: string;
+  value: string;
+  numericFilter?: {
+    type: NumericFilterType;
+    value: string;
+    secondValue?: string;
+  };
+  textFilter?: {
+    type: TextFilterType;
+    value: string;
+    secondValue?: string; // For "in" operator to store multiple values
+  };
+}
+
+// Add this validation function at the top level
+const isValidRule = (rule: Partial<LocalSearchRule>) => {
+  if (rule.numericFilter) {
+    const value = Number(rule.numericFilter.value);
+    const secondValue = rule.numericFilter.secondValue ? Number(rule.numericFilter.secondValue) : undefined;
+    
+    if (isNaN(value) || (secondValue !== undefined && isNaN(secondValue))) {
+      return false;
+    }
+
+    if (rule.index === "latitude1") {
+      return value >= -90 && value <= 90 && 
+             (secondValue === undefined || (secondValue >= -90 && secondValue <= 90));
+    }
+    if (rule.index === "longitude1") {
+      return value >= -180 && value <= 180 && 
+             (secondValue === undefined || (secondValue >= -180 && secondValue <= 180));
+    }
+    return true;
+  }
+  return rule.value?.trim() !== "";
+};
 
 export default function Botany() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const convex = useConvex();
 
-  const [searchRules, setSearchRules] = useState([
+  const [searchRules, setSearchRules] = useState<LocalSearchRule[]>([
     { id: 1, index: "fullName", value: "" },
   ]);
-  const [results, setResults] = useState<Doc<"botany">[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState<"search" | "filters">("search");
+  const RESULTS_PER_PAGE = 30;
 
-  const fetchResults = useCallback(
-    async (rules: typeof searchRules) => {
-      const validRules = rules.filter((r) => r.value.trim());
-      const searchResults = await convex.query(api.botany.searchPlants, {
-        limit: 30,
-        query: validRules,
-      });
-      setResults(searchResults);
+  const {
+    results,
+    status,
+    loadMore,
+    isLoading,
+  } = usePaginatedQuery(
+    api.botany.searchPlants,
+    {
+      rules: searchRules.map(rule => {
+        if (rule.numericFilter) {
+          return {
+            field: rule.index,
+            operator: rule.numericFilter.type,
+            value: Number(rule.numericFilter.value),
+            ...(rule.numericFilter.secondValue !== undefined && {
+              secondValue: Number(rule.numericFilter.secondValue)
+            })
+          };
+        }
+        if (rule.textFilter) {
+          return {
+            field: rule.index,
+            operator: rule.textFilter.type,
+            value: rule.textFilter.value,
+            // For text filters, we don't send secondValue as it's handled differently in the backend
+          };
+        }
+        return {
+          field: rule.index,
+          operator: "=",
+          value: rule.value
+        };
+      }),
     },
-    [convex],
+    { initialNumItems: RESULTS_PER_PAGE }
   );
 
-  const handleSearch = useCallback(async () => {
-    const encoded = encodeURIComponent(JSON.stringify(searchRules));
-    router.push(`/botany?query=${encoded}`);
-  }, [searchRules, router]);
+  const handleSearch = async () => {
+    // The search will be triggered automatically by the usePaginatedQuery hook
+    // when searchRules changes
+  };
 
   // Handle URL search params
   useEffect(() => {
@@ -43,19 +119,106 @@ export default function Botany() {
       try {
         const parsed = JSON.parse(decodeURIComponent(query));
         setSearchRules(parsed);
-        fetchResults(parsed);
+        handleSearch();
       } catch {
-        fetchResults([{ id: 1, index: "fullName", value: "" }]);
+        handleSearch();
       }
     } else {
-      fetchResults([{ id: 1, index: "fullName", value: "" }]);
+      handleSearch();
     }
-  }, [searchParams, fetchResults]);
+  }, [searchParams.get("query")]);
 
   // Add this handler for key press
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSearch();
+    }
+  };
+
+  const handleRuleChange = (id: number, key: string, newValue: string) => {
+    setSearchRules((rules) =>
+      rules.map((rule) => {
+        if (rule.id === id) {
+          // If changing to a numeric field, clear the value and set up numericFilter
+          if (key === "index" && (newValue === "latitude1" || newValue === "longitude1")) {
+            return {
+              ...rule,
+              [key]: newValue,
+              value: "",
+              numericFilter: {
+                type: "=",
+                value: "0"
+              }
+            };
+          }
+          // If changing to a text field, set up textFilter
+          if (key === "index" && !["latitude1", "longitude1"].includes(newValue)) {
+            return {
+              ...rule,
+              [key]: newValue,
+              value: "",
+              textFilter: {
+                type: "=",
+                value: ""
+              }
+            };
+          }
+          return { ...rule, [key]: newValue };
+        }
+        return rule;
+      }),
+    );
+  };
+
+  const handleNumericFilterChange = (
+    id: number,
+    filterType: NumericFilterType,
+    value: string,
+    secondValue?: string
+  ) => {
+    setSearchRules((rules) =>
+      rules.map((rule) =>
+        rule.id === id
+          ? {
+              ...rule,
+              value: "", // Clear the value field
+              numericFilter: {
+                type: filterType,
+                value,
+                ...(secondValue !== undefined ? { secondValue } : {}),
+              },
+            }
+          : rule
+      )
+    );
+  };
+
+  const handleTextFilterChange = (
+    id: number,
+    filterType: TextFilterType,
+    value: string,
+    secondValue?: string
+  ) => {
+    setSearchRules((rules) =>
+      rules.map((rule) =>
+        rule.id === id
+          ? {
+              ...rule,
+              value: "", // Clear the value field
+              textFilter: {
+                type: filterType,
+                value,
+                ...(secondValue !== undefined ? { secondValue } : {}),
+              },
+            }
+          : rule
+      )
+    );
+  };
+
+  const handleLoadMore = () => {
+    if (status === "CanLoadMore") {
+      loadMore(RESULTS_PER_PAGE);
     }
   };
 
@@ -72,14 +235,6 @@ export default function Botany() {
 
   const renderSearch = () => {
     const renderSearchInputAndButton = () => {
-      const handleRuleChange = (id: number, key: string, newValue: string) => {
-        setSearchRules((rules) =>
-          rules.map((rule) =>
-            rule.id === id ? { ...rule, [key]: newValue } : rule,
-          ),
-        );
-      };
-
       const addSearchRule = () => {
         setSearchRules((rules) => [
           ...rules,
@@ -97,25 +252,116 @@ export default function Botany() {
             <div key={rule.id} className="flex gap-2 items-center">
               <select
                 value={rule.index}
-                onChange={(e) =>
-                  handleRuleChange(rule.id, "index", e.target.value)
-                }
+                onChange={(e) => handleRuleChange(rule.id, "index", e.target.value)}
                 className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
               >
                 <option value="fullName">Full Name</option>
                 <option value="country">Country</option>
                 <option value="collectors">Collectors</option>
                 <option value="state">State</option>
+                <option value="latitude1">Latitude</option>
+                <option value="longitude1">Longitude</option>
               </select>
-              <Input
-                value={rule.value}
-                placeholder={`Search ${rule.index}...`}
-                onChange={(e) =>
-                  handleRuleChange(rule.id, "value", e.target.value)
-                }
-                onKeyDown={handleKeyPress}
-                className="flex-1"
-              />
+
+              {/* Show numeric filter options for latitude and longitude */}
+              {(rule.index === "latitude1" || rule.index === "longitude1") && (
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={rule.numericFilter?.type || "="}
+                    onChange={(e) => {
+                      const type = e.target.value as NumericFilterType;
+                      handleNumericFilterChange(
+                        rule.id,
+                        type,
+                        rule.numericFilter?.value || "",
+                        rule.numericFilter?.secondValue
+                      );
+                    }}
+                    className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
+                  >
+                    <option value="=">=</option>
+                    <option value="before">Before</option>
+                    <option value="after">After</option>
+                    <option value="between">Between</option>
+                  </select>
+                  <Input
+                    type="text"
+                    value={rule.numericFilter?.value ?? ""}
+                    placeholder={rule.index === "latitude1" ? "Latitude" : "Longitude"}
+                    onChange={(e) => {
+                      handleNumericFilterChange(
+                        rule.id,
+                        rule.numericFilter?.type || "=",
+                        e.target.value,
+                        rule.numericFilter?.secondValue
+                      );
+                    }}
+                    className={`w-32 ${!isValidRule(rule) ? "border-red-500" : ""}`}
+                  />
+                  {!isValidRule(rule) && (
+                    <span className="text-red-500 text-sm">
+                      Invalid {rule.index === "latitude1" ? "latitude" : "longitude"}
+                    </span>
+                  )}
+                  {rule.numericFilter?.type === "between" && (
+                    <>
+                      <Input
+                        type="text"
+                        value={rule.numericFilter?.secondValue ?? ""}
+                        placeholder="And"
+                        onChange={(e) => {
+                          handleNumericFilterChange(
+                            rule.id,
+                            "between",
+                            rule.numericFilter?.value || "",
+                            e.target.value
+                          );
+                        }}
+                        className={`w-32 ${!isValidRule(rule) ? "border-red-500" : ""}`}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Show text filter options for non-numeric fields */}
+              {!["latitude1", "longitude1"].includes(rule.index) && (
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={rule.textFilter?.type || "="}
+                    onChange={(e) => {
+                      const type = e.target.value as TextFilterType;
+                      handleTextFilterChange(
+                        rule.id,
+                        type,
+                        rule.textFilter?.value || "",
+                        rule.textFilter?.secondValue
+                      );
+                    }}
+                    className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
+                  >
+                    <option value="=">=</option>
+                    <option value="contains">Contains</option>
+                    <option value="contains_any">Contains Any</option>
+                    <option value="in">In</option>
+                  </select>
+                  <Input
+                    type="text"
+                    value={rule.textFilter?.value ?? ""}
+                    placeholder={rule.textFilter?.type === "in" ? "Enter values (comma-separated)..." : `Search ${rule.index}...`}
+                    onChange={(e) => {
+                      handleTextFilterChange(
+                        rule.id,
+                        rule.textFilter?.type || "=",
+                        e.target.value,
+                        rule.textFilter?.secondValue
+                      );
+                    }}
+                    className="flex-1"
+                  />
+                </div>
+              )}
+
               {searchRules.length > 1 && (
                 <Button
                   variant="ghost"
@@ -188,7 +434,26 @@ export default function Botany() {
               </div>
             </div>
           ) : (
-            results.map((plant) => <BotanyCard key={plant._id} plant={plant} />)
+            <>
+              {results.map((plant) => (
+                <BotanyCard 
+                  key={plant._id} 
+                  plant={plant} 
+                />
+              ))}
+              {status === "CanLoadMore" && (
+                <div className="col-span-full flex justify-center mt-8">
+                  <Button
+                    onClick={handleLoadMore}
+                    variant="outline"
+                    className="text-green-700"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Load More"}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
