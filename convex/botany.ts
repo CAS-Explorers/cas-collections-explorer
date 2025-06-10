@@ -166,7 +166,7 @@ export const searchPlants = query({
     const indexName = `search_${firstRule.field}` as SearchIndex;
     const q = ctx.db.query("botany").withSearchIndex(indexName, (q) => {
       switch (firstRule.operator) {
-        case "=":
+                case "=":
           // For exact match, we'll use search and filter the results
           return q.search(firstRule.field as SearchField, searchValue);
         case "contains":
@@ -186,9 +186,9 @@ export const searchPlants = query({
           // For in, we'll search for all values and combine results
           const values = searchValue.split(/[,\s]+/).filter(v => v.trim() !== "");
           return q.search(firstRule.field as SearchField, values.join(" "));
-        default:
+                default:
           return q.search(firstRule.field as SearchField, searchValue);
-      }
+              }
     });
 
     const paginatedResults = await q.paginate(paginationOpts);
@@ -198,12 +198,12 @@ export const searchPlants = query({
       const filteredPage = paginatedResults.page.filter((plant: Doc<"botany">) => {
         const fieldValue = String(plant[firstRule.field as SearchField]).toLowerCase();
         return fieldValue === searchValue.toLowerCase();
-      });
-      return {
-        ...paginatedResults,
-        page: filteredPage
-      };
-    }
+        });
+        return {
+          ...paginatedResults,
+          page: filteredPage
+        };
+      }
 
     // For contains_any, we need to filter the results to match any of the terms
     if (firstRule.operator === "contains_any") {
@@ -218,21 +218,21 @@ export const searchPlants = query({
           // For country field, handle country codes
           if (firstRule.field === "country") {
             const countryName = getCountryFromCode(term);
-            if (countryName) {
+                if (countryName) {
               return fieldValue.includes(countryName.toLowerCase());
-            }
-          }
+                }
+              }
           return fieldValue.includes(term);
         });
       });
 
       // Return the filtered results with the original pagination info
-      return {
-        ...paginatedResults,
-        page: filteredPage
-      };
-    }
+        return {
+          ...paginatedResults,
+          page: filteredPage
+        };
+      }
 
-    return paginatedResults;
+      return paginatedResults;
   },
 });
