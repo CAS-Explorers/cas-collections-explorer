@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
-import { useConvex } from "convex/react";
-import { Doc } from "@/convex/_generated/dataModel";
 import { usePaginatedQuery } from "convex/react";
-import { Id } from "../../convex/_generated/dataModel";
-import { SearchRule } from "@/convex/botany";
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -59,15 +55,11 @@ const isValidRule = (rule: Partial<LocalSearchRule>) => {
 };
 
 export default function Botany() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const convex = useConvex();
 
   const [searchRules, setSearchRules] = useState<LocalSearchRule[]>([
     { id: 1, index: "fullName", value: "" },
   ]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState<"search" | "filters">("search");
   const RESULTS_PER_PAGE = 30;
 
   const {
@@ -126,14 +118,7 @@ export default function Botany() {
     } else {
       handleSearch();
     }
-  }, [searchParams.get("query")]);
-
-  // Add this handler for key press
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
+  }, [searchParams, handleSearch]);
 
   const handleRuleChange = (id: number, key: string, newValue: string) => {
     setSearchRules((rules) =>
