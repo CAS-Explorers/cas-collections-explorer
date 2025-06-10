@@ -1,94 +1,3 @@
-
-// const countryEmojis: { [key: string]: string } = {
-//   "United States": "🇺🇸",
-//   Canada: "🇨🇦",
-//   Mexico: "🇲🇽",
-//   "United Kingdom": "🇬🇧",
-//   Germany: "🇩🇪",
-//   France: "🇫🇷",
-//   Italy: "🇮🇹",
-//   Spain: "🇪🇸",
-//   Australia: "🇦🇺",
-//   India: "🇮🇳",
-//   China: "🇨🇳",
-//   Japan: "🇯🇵",
-//   Brazil: "🇧🇷",
-//   "South Africa": "🇿🇦",
-//   "Costa Rica": "🇨🇷",
-//   Argentina: "🇦🇷",
-//   Chile: "🇨🇱",
-//   Colombia: "🇨🇴",
-//   Peru: "🇵🇪",
-//   "New Zealand": "🇳🇿",
-//   Russia: "🇷🇺",
-//   "South Korea": "🇰🇷",
-//   Sweden: "🇸🇪",
-//   Norway: "🇳🇴",
-//   Finland: "🇫🇮",
-//   Denmark: "🇩🇰",
-//   Netherlands: "🇳🇱",
-//   Belgium: "🇧🇪",
-//   Switzerland: "🇨🇭",
-//   Austria: "🇦🇹",
-//   Greece: "🇬🇷",
-//   Portugal: "🇵🇹",
-//   Turkey: "🇹🇷",
-//   Israel: "🇮🇱",
-//   Egypt: "🇪🇬",
-//   "Saudi Arabia": "🇸🇦",
-//   "United Arab Emirates": "🇦🇪",
-//   Singapore: "🇸🇬",
-//   Malaysia: "🇲🇾",
-//   Thailand: "🇹🇭",
-//   Vietnam: "🇻🇳",
-//   Philippines: "🇵🇭",
-//   Indonesia: "🇮🇩",
-//   Bangladesh: "🇧🇩",
-//   Pakistan: "🇵🇰",
-//   Iraq: "🇮🇶",
-//   Iran: "🇮🇷",
-//   Afghanistan: "🇦🇫",
-//   Kazakhstan: "🇰🇿",
-//   Ukraine: "🇺🇦",
-//   Poland: "🇵🇱",
-//   "Czech Republic": "🇨🇿",
-//   Hungary: "🇭🇺",
-//   Slovakia: "🇸🇰",
-//   Romania: "🇷🇴",
-//   Bulgaria: "🇧🇬",
-//   Serbia: "🇷🇸",
-//   Croatia: "🇭🇷",
-//   Slovenia: "🇸🇮",
-//   Lithuania: "🇱🇹",
-//   Latvia: "🇱🇻",
-//   Estonia: "🇪🇪",
-//   Moldova: "🇲🇩",
-//   Georgia: "🇬🇪",
-//   Armenia: "🇦🇲",
-//   Azerbaijan: "🇦🇿",
-//   Jamaica: "🇯🇲",
-//   "Dominican Republic": "🇩🇴",
-//   Haiti: "🇭🇹",
-//   Cuba: "🇨🇺",
-//   Barbados: "🇧🇧",
-//   "Trinidad and Tobago": "🇹🇹",
-//   Bahamas: "🇧🇸",
-//   "Saint Lucia": "🇱🇨",
-//   "Saint Vincent and the Grenadines": "🇻🇨",
-//   Grenada: "🇬🇩",
-//   "Antigua and Barbuda": "🇦🇬",
-//   Dominica: "🇩🇲",
-//   Belize: "🇧🇿",
-//   Guatemala: "🇬🇹",
-//   "El Salvador": "🇸🇻",
-//   Nicaragua: "🇳🇮",
-//   Panama: "🇵🇦",
-//   // Add more countries and their emojis as needed
-// };
-
-// export const getCountryEmoji = (country: string): string => {
-//   return countryEmojis[country] || ""; // Return empty string if country not found
-// };
 interface CountryInfo {
   emoji: string;
   alpha2: string;
@@ -510,6 +419,381 @@ const countryData: { [key: string]: CountryInfo } = {
     emoji: "🇵🇦",
     alpha2: "PA",
     alpha3: "PAN"
+  },
+  "Bolivia": {
+    emoji: "🇧🇴",
+    alpha2: "BO",
+    alpha3: "BOL"
+  },
+  "Ecuador": {
+    emoji: "🇪🇨",
+    alpha2: "EC",
+    alpha3: "ECU"
+  },
+  "Paraguay": {
+    emoji: "🇵🇾",
+    alpha2: "PY",
+    alpha3: "PRY"
+  },
+  "Uruguay": {
+    emoji: "🇺🇾",
+    alpha2: "UY",
+    alpha3: "URY"
+  },
+  "Venezuela": {
+    emoji: "🇻🇪",
+    alpha2: "VE",
+    alpha3: "VEN"
+  },
+  "Guyana": {
+    emoji: "🇬🇾",
+    alpha2: "GY",
+    alpha3: "GUY"
+  },
+  "Suriname": {
+    emoji: "🇸🇷",
+    alpha2: "SR",
+    alpha3: "SUR"
+  },
+  "French Guiana": {
+    emoji: "🇬🇫",
+    alpha2: "GF",
+    alpha3: "GUF"
+  },
+  "São Tomé and Príncipe": {
+    emoji: "🇸🇹",
+    alpha2: "ST",
+    alpha3: "STP"
+  },
+  "Equatorial Guinea": {
+    emoji: "🇬🇶",
+    alpha2: "GQ",
+    alpha3: "GNQ"
+  },
+  "Gabon": {
+    emoji: "🇬🇦",
+    alpha2: "GA",
+    alpha3: "GAB"
+  },
+  "Cameroon": {
+    emoji: "🇨🇲",
+    alpha2: "CM",
+    alpha3: "CMR"
+  },
+  "Central African Republic": {
+    emoji: "🇨🇫",
+    alpha2: "CF",
+    alpha3: "CAF"
+  },
+  "Democratic Republic of the Congo": {
+    emoji: "🇨🇩",
+    alpha2: "CD",
+    alpha3: "COD"
+  },
+  "Republic of the Congo": {
+    emoji: "🇨🇬",
+    alpha2: "CG",
+    alpha3: "COG"
+  },
+  "Burundi": {
+    emoji: "🇧🇮",
+    alpha2: "BI",
+    alpha3: "BDI"
+  },
+  "Rwanda": {
+    emoji: "🇷🇼",
+    alpha2: "RW",
+    alpha3: "RWA"
+  },
+  "Uganda": {
+    emoji: "🇺🇬",
+    alpha2: "UG",
+    alpha3: "UGA"
+  },
+  "Kenya": {
+    emoji: "🇰🇪",
+    alpha2: "KE",
+    alpha3: "KEN"
+  },
+  "Tanzania": {
+    emoji: "🇹🇿",
+    alpha2: "TZ",
+    alpha3: "TZA"
+  },
+  "Mozambique": {
+    emoji: "🇲🇿",
+    alpha2: "MZ",
+    alpha3: "MOZ"
+  },
+  "Madagascar": {
+    emoji: "🇲🇬",
+    alpha2: "MG",
+    alpha3: "MDG"
+  },
+  "Comoros": {
+    emoji: "🇰🇲",
+    alpha2: "KM",
+    alpha3: "COM"
+  },
+  "Seychelles": {
+    emoji: "🇸🇨",
+    alpha2: "SC",
+    alpha3: "SYC"
+  },
+  "Mauritius": {
+    emoji: "🇲🇺",
+    alpha2: "MU",
+    alpha3: "MUS"
+  },
+  "Malawi": {
+    emoji: "🇲🇼",
+    alpha2: "MW",
+    alpha3: "MWI"
+  },
+  "Zambia": {
+    emoji: "🇿🇲",
+    alpha2: "ZM",
+    alpha3: "ZMB"
+  },
+  "Zimbabwe": {
+    emoji: "🇿🇼",
+    alpha2: "ZW",
+    alpha3: "ZWE"
+  },
+  "Botswana": {
+    emoji: "🇧🇼",
+    alpha2: "BW",
+    alpha3: "BWA"
+  },
+  "Namibia": {
+    emoji: "🇳🇦",
+    alpha2: "NA",
+    alpha3: "NAM"
+  },
+  "Angola": {
+    emoji: "🇦🇴",
+    alpha2: "AO",
+    alpha3: "AGO"
+  },
+  "Lesotho": {
+    emoji: "🇱🇸",
+    alpha2: "LS",
+    alpha3: "LSO"
+  },
+  "Eswatini": {
+    emoji: "🇸🇿",
+    alpha2: "SZ",
+    alpha3: "SWZ"
+  },
+  "Ethiopia": {
+    emoji: "🇪🇹",
+    alpha2: "ET",
+    alpha3: "ETH"
+  },
+  "Eritrea": {
+    emoji: "🇪🇷",
+    alpha2: "ER",
+    alpha3: "ERI"
+  },
+  "Djibouti": {
+    emoji: "🇩🇯",
+    alpha2: "DJ",
+    alpha3: "DJI"
+  },
+  "Somalia": {
+    emoji: "🇸🇴",
+    alpha2: "SO",
+    alpha3: "SOM"
+  },
+  "Sudan": {
+    emoji: "🇸🇩",
+    alpha2: "SD",
+    alpha3: "SDN"
+  },
+  "South Sudan": {
+    emoji: "🇸🇸",
+    alpha2: "SS",
+    alpha3: "SSD"
+  },
+  "Chad": {
+    emoji: "🇹🇩",
+    alpha2: "TD",
+    alpha3: "TCD"
+  },
+  "Niger": {
+    emoji: "🇳🇪",
+    alpha2: "NE",
+    alpha3: "NER"
+  },
+  "Mali": {
+    emoji: "🇲🇱",
+    alpha2: "ML",
+    alpha3: "MLI"
+  },
+  "Burkina Faso": {
+    emoji: "🇧🇫",
+    alpha2: "BF",
+    alpha3: "BFA"
+  },
+  "Senegal": {
+    emoji: "🇸🇳",
+    alpha2: "SN",
+    alpha3: "SEN"
+  },
+  "Gambia": {
+    emoji: "🇬🇲",
+    alpha2: "GM",
+    alpha3: "GMB"
+  },
+  "Guinea-Bissau": {
+    emoji: "🇬🇼",
+    alpha2: "GW",
+    alpha3: "GNB"
+  },
+  "Guinea": {
+    emoji: "🇬🇳",
+    alpha2: "GN",
+    alpha3: "GIN"
+  },
+  "Sierra Leone": {
+    emoji: "🇸🇱",
+    alpha2: "SL",
+    alpha3: "SLE"
+  },
+  "Liberia": {
+    emoji: "🇱🇷",
+    alpha2: "LR",
+    alpha3: "LBR"
+  },
+  "Cote d'Ivoire": {
+    emoji: "🇨🇮",
+    alpha2: "CI",
+    alpha3: "CIV"
+  },
+  "Ghana": {
+    emoji: "🇬🇭",
+    alpha2: "GH",
+    alpha3: "GHA"
+  },
+  "Togo": {
+    emoji: "🇹🇬",
+    alpha2: "TG",
+    alpha3: "TGO"
+  },
+  "Benin": {
+    emoji: "🇧🇯",
+    alpha2: "BJ",
+    alpha3: "BEN"
+  },
+  "Nigeria": {
+    emoji: "🇳🇬",
+    alpha2: "NG",
+    alpha3: "NGA"
+  },
+  "Nepal": {
+    emoji: "🇳🇵",
+    alpha2: "NP",
+    alpha3: "NPL"
+  },
+  "Bhutan": {
+    emoji: "🇧🇹",
+    alpha2: "BT",
+    alpha3: "BTN"
+  },
+  "Sri Lanka": {
+    emoji: "🇱🇰",
+    alpha2: "LK",
+    alpha3: "LKA"
+  },
+  "Maldives": {
+    emoji: "🇲🇻",
+    alpha2: "MV",
+    alpha3: "MDV"
+  },
+  "Myanmar": {
+    emoji: "🇲🇲",
+    alpha2: "MM",
+    alpha3: "MMR"
+  },
+  "Laos": {
+    emoji: "🇱🇦",
+    alpha2: "LA",
+    alpha3: "LAO"
+  },
+  "Cambodia": {
+    emoji: "🇰🇭",
+    alpha2: "KH",
+    alpha3: "KHM"
+  },
+  "Brunei": {
+    emoji: "🇧🇳",
+    alpha2: "BN",
+    alpha3: "BRN"
+  },
+  "Timor-Leste": {
+    emoji: "🇹🇱",
+    alpha2: "TL",
+    alpha3: "TLS"
+  },
+  "Papua New Guinea": {
+    emoji: "🇵🇬",
+    alpha2: "PG",
+    alpha3: "PNG"
+  },
+  "Fiji": {
+    emoji: "🇫🇯",
+    alpha2: "FJ",
+    alpha3: "FJI"
+  },
+  "Vanuatu": {
+    emoji: "🇻🇺",
+    alpha2: "VU",
+    alpha3: "VUT"
+  },
+  "Solomon Islands": {
+    emoji: "🇸🇧",
+    alpha2: "SB",
+    alpha3: "SLB"
+  },
+  "Samoa": {
+    emoji: "🇼🇸",
+    alpha2: "WS",
+    alpha3: "WSM"
+  },
+  "Tonga": {
+    emoji: "🇹🇴",
+    alpha2: "TO",
+    alpha3: "TON"
+  },
+  "Kiribati": {
+    emoji: "🇰🇮",
+    alpha2: "KI",
+    alpha3: "KIR"
+  },
+  "Marshall Islands": {
+    emoji: "🇲🇭",
+    alpha2: "MH",
+    alpha3: "MHL"
+  },
+  "Micronesia": {
+    emoji: "🇫🇲",
+    alpha2: "FM",
+    alpha3: "FSM"
+  },
+  "Palau": {
+    emoji: "🇵🇼",
+    alpha2: "PW",
+    alpha3: "PLW"
+  },
+  "Nauru": {
+    emoji: "🇳🇷",
+    alpha2: "NR",
+    alpha3: "NRU"
+  },
+  "Tuvalu": {
+    emoji: "🇹🇻",
+    alpha2: "TV",
+    alpha3: "TUV"
   }
 };
 
