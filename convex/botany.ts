@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
 import { Plant } from "./schema";
 import { paginationOptsValidator } from "convex/server";
+import { mutation } from "./_generated/server";
 
 export type SearchRule = {
   field: string;
@@ -235,4 +236,23 @@ export const searchPlants = query({
 
       return paginatedResults;
   },
+});
+export const deletePlants = mutation({
+  args: {
+    ids: v.array(v.id("botany"))
+  },
+  handler: async (ctx, args) => {
+    const { ids } = args;
+    const BATCH_SIZE = 100;
+    
+    // Delete in batches of 100
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      for (const id of batch) {
+        await ctx.db.delete(id);
+      }
+    }
+    
+    return { deleted: ids.length };
+  }
 });
