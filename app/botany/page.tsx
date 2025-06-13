@@ -240,13 +240,18 @@ export default function Botany() {
                 onChange={(e) => handleRuleChange(rule.id, "index", e.target.value)}
                 className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
               >
-                <option value="fullName">Full Name</option>
+                <option value="fullName">Scientific Name</option>
                 <option value="country">Country</option>
                 <option value="collectors">Collectors</option>
                 <option value="state">State</option>
                 <option value="class">Class</option>
                 <option value="order">Order</option>
                 <option value="family">Family</option>
+                <option value="determiner">Determiner</option>
+                <option value="continent">Continent</option>
+                <option value="town">Town</option>
+                <option value="typeStatusName">Type Status</option>
+                <option value="preparations">Preparations</option>
                 <option value="latitude1">Latitude</option>
                 <option value="longitude1">Longitude</option>
               </select>
