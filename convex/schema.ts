@@ -70,6 +70,9 @@ export default defineSchema({
     })
     .searchIndex("search_state", {
       searchField: "state",
+    })
+    .searchIndex("search_class", {
+      searchField: "class",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.
