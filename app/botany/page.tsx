@@ -246,6 +246,7 @@ export default function Botany() {
                 <option value="state">State</option>
                 <option value="class">Class</option>
                 <option value="order">Order</option>
+                <option value="family">Family</option>
                 <option value="latitude1">Latitude</option>
                 <option value="longitude1">Longitude</option>
               </select>
