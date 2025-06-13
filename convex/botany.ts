@@ -13,8 +13,8 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "fullName" | "country" | "collectors" | "state";
-type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state";
+type SearchField = "fullName" | "country" | "collectors" | "state" | "class";
+type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class";
 type CoordinateField = "longitude1" | "latitude1";
 
 export const getPlantById = query({
@@ -237,22 +237,23 @@ export const searchPlants = query({
       return paginatedResults;
   },
 });
-export const deletePlants = mutation({
-  args: {
-    ids: v.array(v.id("botany"))
-  },
-  handler: async (ctx, args) => {
-    const { ids } = args;
-    const BATCH_SIZE = 100;
+//Use again if we need more space
+// export const deletePlants = mutation({
+//   args: {
+//     ids: v.array(v.id("botany"))
+//   },
+//   handler: async (ctx, args) => {
+//     const { ids } = args;
+//     const BATCH_SIZE = 100;
     
-    // Delete in batches of 100
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      const batch = ids.slice(i, i + BATCH_SIZE);
-      for (const id of batch) {
-        await ctx.db.delete(id);
-      }
-    }
+//     // Delete in batches of 100
+//     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+//       const batch = ids.slice(i, i + BATCH_SIZE);
+//       for (const id of batch) {
+//         await ctx.db.delete(id);
+//       }
+//     }
     
-    return { deleted: ids.length };
-  }
-});
+//     return { deleted: ids.length };
+//   }
+// });
