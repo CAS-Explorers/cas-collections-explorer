@@ -79,6 +79,21 @@ export default defineSchema({
     })
     .searchIndex("search_family", {
       searchField: "family",
+    })
+    .searchIndex("search_determiner", {
+      searchField: "determiner",
+    })
+    .searchIndex("search_continent", {
+      searchField: "continent",
+    })
+    .searchIndex("search_town", {
+      searchField: "town",
+    })
+    .searchIndex("search_typeStatusName", {
+      searchField: "typeStatusName",
+    })
+    .searchIndex("search_preparations", {
+      searchField: "preparations",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.
