@@ -13,8 +13,8 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order";
-type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order";
+type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family";
+type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family";
 type CoordinateField = "longitude1" | "latitude1";
 
 export const getPlantById = query({
