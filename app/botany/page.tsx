@@ -49,6 +49,20 @@ const isValidRule = (rule: Partial<LocalSearchRule>) => {
       return value >= -180 && value <= 180 && 
              (secondValue === undefined || (secondValue >= -180 && secondValue <= 180));
     }
+    if (rule.index === "minElevation") {
+      // For minElevation, ensure it's not greater than maxElevation if provided
+      if (secondValue !== undefined) {
+        return value <= secondValue;
+      }
+      return true;
+    }
+    if (rule.index === "maxElevation") {
+      // For maxElevation, ensure it's not less than minElevation if provided
+      if (secondValue !== undefined) {
+        return value <= secondValue;  // Changed from >= to <= since we want the second value to be higher
+      }
+      return true;
+    }
     return true;
   }
   return rule.value?.trim() !== "";
@@ -125,7 +139,8 @@ export default function Botany() {
       rules.map((rule) => {
         if (rule.id === id) {
           // If changing to a numeric field, clear the value and set up numericFilter
-          if (key === "index" && (newValue === "latitude1" || newValue === "longitude1")) {
+          if (key === "index" && (newValue === "latitude1" || newValue === "longitude1" || 
+                                 newValue === "minElevation" || newValue === "maxElevation")) {
             return {
               ...rule,
               [key]: newValue,
@@ -137,7 +152,7 @@ export default function Botany() {
             };
           }
           // If changing to a text field, set up textFilter
-          if (key === "index" && !["latitude1", "longitude1"].includes(newValue)) {
+          if (key === "index" && !["latitude1", "longitude1", "minElevation", "maxElevation"].includes(newValue)) {
             return {
               ...rule,
               [key]: newValue,
@@ -252,12 +267,18 @@ export default function Botany() {
                 <option value="town">Town</option>
                 <option value="typeStatusName">Type Status</option>
                 <option value="preparations">Preparations</option>
+                <option value="localityName">Locality</option>
+                <option value="catalogNumber">Catalog Number</option>
+                <option value="altCatalogNumber">Alt Catalog Number</option>
+                <option value="minElevation">Min Elevation</option>
+                <option value="maxElevation">Max Elevation</option>
                 <option value="latitude1">Latitude</option>
                 <option value="longitude1">Longitude</option>
               </select>
 
               {/* Show numeric filter options for latitude and longitude */}
-              {(rule.index === "latitude1" || rule.index === "longitude1") && (
+              {(rule.index === "latitude1" || rule.index === "longitude1" || 
+                rule.index === "minElevation" || rule.index === "maxElevation") && (
                 <div className="flex gap-2 items-center">
                   <select
                     value={rule.numericFilter?.type || "="}
@@ -280,7 +301,10 @@ export default function Botany() {
                   <Input
                     type="text"
                     value={rule.numericFilter?.value ?? ""}
-                    placeholder={rule.index === "latitude1" ? "Latitude" : "Longitude"}
+                    placeholder={rule.index === "latitude1" ? "Latitude" : 
+                              rule.index === "longitude1" ? "Longitude" :
+                              rule.index === "minElevation" ? "Min Elevation" :
+                              "Max Elevation"}
                     onChange={(e) => {
                       handleNumericFilterChange(
                         rule.id,
@@ -293,7 +317,11 @@ export default function Botany() {
                   />
                   {!isValidRule(rule) && (
                     <span className="text-red-500 text-sm">
-                      Invalid {rule.index === "latitude1" ? "latitude" : "longitude"}
+                      Invalid {rule.index === "latitude1" ? "latitude" : 
+                              rule.index === "longitude1" ? "longitude" :
+                              rule.index === "minElevation" ? "min elevation" :
+                              rule.index === "maxElevation" ? "max elevation" :
+                              "value"}
                     </span>
                   )}
                   {rule.numericFilter?.type === "between" && (
@@ -318,7 +346,7 @@ export default function Botany() {
               )}
 
               {/* Show text filter options for non-numeric fields */}
-              {!["latitude1", "longitude1"].includes(rule.index) && (
+              {!["latitude1", "longitude1", "minElevation", "maxElevation"].includes(rule.index) && (
                 <div className="flex gap-2 items-center">
                   <select
                     value={rule.textFilter?.type || "="}
