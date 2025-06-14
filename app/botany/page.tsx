@@ -295,6 +295,7 @@ export default function Botany() {
                 <option value="preparations">Preparations</option>
                 <option value="localityName">Locality</option>
                 <option value="determinedDate">Determination Date</option>
+                <option value="verbatimDate">Verbatim Date</option>
                 <option value="catalogNumber">Catalog Number</option>
                 <option value="altCatalogNumber">Alt Catalog Number</option>
                 <option value="minElevation">Min Elevation</option>

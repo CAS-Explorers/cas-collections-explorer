@@ -104,6 +104,9 @@ export default defineSchema({
     })
     .searchIndex("search_determinedDate", {
       searchField: "determinedDate",
+    })
+    .searchIndex("search_verbatimDate", {
+      searchField: "verbatimDate",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.
