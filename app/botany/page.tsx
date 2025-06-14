@@ -68,6 +68,31 @@ const isValidRule = (rule: Partial<LocalSearchRule>) => {
   return rule.value?.trim() !== "";
 };
 
+// Add this function before the Botany component
+const formatDate = (dateStr: string): string => {
+  // Split the date into parts
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+
+  // Format year (should be 4 digits)
+  const year = parts[0];
+  if (year.length !== 4) return dateStr;
+
+  // Format month (add leading zero if needed)
+  let month = parts[1];
+  if (month.length === 1 && month !== '0') {
+    month = '0' + month;
+  }
+
+  // Format day (add leading zero if needed)
+  let day = parts[2];
+  if (day.length === 1 && day !== '0') {
+    day = '0' + day;
+  }
+
+  return `${year}-${month}-${day}`;
+};
+
 export default function Botany() {
   const searchParams = useSearchParams();
 
@@ -200,19 +225,20 @@ export default function Botany() {
     secondValue?: string
   ) => {
     setSearchRules((rules) =>
-      rules.map((rule) =>
-        rule.id === id
-          ? {
-              ...rule,
-              value: "", // Clear the value field
-              textFilter: {
-                type: filterType,
-                value,
-                ...(secondValue !== undefined ? { secondValue } : {}),
-              },
-            }
-          : rule
-      )
+      rules.map((rule) => {
+        if (rule.id === id) {
+          return {
+            ...rule,
+            value: "", // Clear the value field
+            textFilter: {
+              type: filterType,
+              value: value,
+              ...(secondValue !== undefined ? { secondValue } : {}),
+            },
+          };
+        }
+        return rule;
+      })
     );
   };
 
@@ -268,6 +294,7 @@ export default function Botany() {
                 <option value="typeStatusName">Type Status</option>
                 <option value="preparations">Preparations</option>
                 <option value="localityName">Locality</option>
+                <option value="determinedDate">Determination Date</option>
                 <option value="catalogNumber">Catalog Number</option>
                 <option value="altCatalogNumber">Alt Catalog Number</option>
                 <option value="minElevation">Min Elevation</option>
@@ -377,6 +404,16 @@ export default function Botany() {
                         e.target.value,
                         rule.textFilter?.secondValue
                       );
+                    }}
+                    onBlur={(e) => {
+                      if (rule.index === "determinedDate") {
+                        handleTextFilterChange(
+                          rule.id,
+                          rule.textFilter?.type || "=",
+                          formatDate(e.target.value),
+                          rule.textFilter?.secondValue
+                        );
+                      }
                     }}
                   className="flex-1"
                 />

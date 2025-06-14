@@ -101,6 +101,9 @@ export default defineSchema({
     })
     .searchIndex("search_localityName", {
       searchField: "localityName",
+    })
+    .searchIndex("search_determinedDate", {
+      searchField: "determinedDate",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.
