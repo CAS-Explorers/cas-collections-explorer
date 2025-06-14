@@ -13,8 +13,8 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName" | "determinedDate";
-type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName" | "search_determinedDate";
+type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName" | "determinedDate" | "verbatimDate";
+type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName" | "search_determinedDate" | "search_verbatimDate";
 type CoordinateField = "longitude1" | "latitude1" | "catalogNumber" | "altCatalogNumber" | "minElevation" | "maxElevation";
 
 export const getPlantById = query({
