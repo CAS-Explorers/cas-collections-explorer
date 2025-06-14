@@ -13,8 +13,8 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName";
-type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName";
+type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName" | "determinedDate";
+type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName" | "search_determinedDate";
 type CoordinateField = "longitude1" | "latitude1" | "catalogNumber" | "altCatalogNumber" | "minElevation" | "maxElevation";
 
 export const getPlantById = query({
@@ -205,13 +205,17 @@ export const searchPlants = query({
     if (firstRule.operator === "=") {
       const filteredPage = paginatedResults.page.filter((plant: Doc<"botany">) => {
         const fieldValue = String(plant[firstRule.field as SearchField]).toLowerCase();
+        // For determinedDate, we want exact string matching
+        if (firstRule.field === "determinedDate") {
+          return fieldValue === searchValue.toLowerCase();
+        }
         return fieldValue === searchValue.toLowerCase();
-        });
-        return {
-          ...paginatedResults,
-          page: filteredPage
-        };
-      }
+      });
+      return {
+        ...paginatedResults,
+        page: filteredPage
+      };
+    }
 
     // For contains_any, we need to filter the results to match any of the terms
     if (firstRule.operator === "contains_any") {
