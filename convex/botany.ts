@@ -13,9 +13,9 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations";
-type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations";
-type CoordinateField = "longitude1" | "latitude1";
+type SearchField = "fullName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName";
+type SearchIndex = "search_fullName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName";
+type CoordinateField = "longitude1" | "latitude1" | "catalogNumber" | "altCatalogNumber" | "minElevation" | "maxElevation";
 
 export const getPlantById = query({
   args: { id: v.id("botany") },
@@ -40,7 +40,7 @@ export const searchPlants = query({
 
     // Get valid search rules (non-empty values)
     const validRules = rules.filter(rule => {
-      if (rule.field === "longitude1" || rule.field === "latitude1") {
+      if (rule.field === "longitude1" || rule.field === "latitude1" || rule.field === "catalogNumber" || rule.field === "altCatalogNumber" || rule.field === "minElevation" || rule.field === "maxElevation") {
         const numValue = Number(rule.value);
         return !isNaN(numValue);
       }
@@ -59,7 +59,9 @@ export const searchPlants = query({
     const firstRule = validRules[0];
 
     // Handle coordinate-based queries using indexes
-    if (firstRule.field === "longitude1" || firstRule.field === "latitude1") {
+    if (firstRule.field === "longitude1" || firstRule.field === "latitude1" || 
+        firstRule.field === "catalogNumber" || firstRule.field === "altCatalogNumber" ||
+        firstRule.field === "minElevation" || firstRule.field === "maxElevation") {
       const numValue = Number(firstRule.value);
       if (isNaN(numValue)) {
         return {
@@ -83,7 +85,12 @@ export const searchPlants = query({
           continueCursor: ""
         };
       }
-      const indexName = firstRule.field === "longitude1" ? "by_longitude" : "by_latitude";
+      const indexName = firstRule.field === "longitude1" ? "by_longitude" : 
+                       firstRule.field === "latitude1" ? "by_latitude" :
+                       firstRule.field === "catalogNumber" ? "by_catalogNumber" :
+                       firstRule.field === "altCatalogNumber" ? "by_altCatalogNumber" :
+                       firstRule.field === "minElevation" ? "by_minElevation" :
+                       "by_maxElevation";
       const field = firstRule.field as CoordinateField;
       let q = ctx.db.query("botany").withIndex(indexName, (q) => {
         switch (firstRule.operator) {
@@ -109,7 +116,7 @@ export const searchPlants = query({
         const filteredPage = paginatedResults.page.filter(plant => {
           for (let i = 1; i < validRules.length; i++) {
             const rule = validRules[i];
-            if (rule.field === "longitude1" || rule.field === "latitude1") {
+            if (rule.field === "longitude1" || rule.field === "latitude1" || rule.field === "catalogNumber" || rule.field === "altCatalogNumber" || rule.field === "minElevation" || rule.field === "maxElevation") {
               const numValue = Number(rule.value);
               if (isNaN(numValue)) continue;
               if (rule.field === "longitude1" && (numValue > 180 || numValue < -180)) continue;

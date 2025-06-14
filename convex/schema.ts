@@ -59,6 +59,10 @@ export default defineSchema({
   botany: defineTable(Plant)
     .index("by_longitude", ["longitude1"])
     .index("by_latitude", ["latitude1"])
+    .index("by_minElevation", ["minElevation"])
+    .index("by_maxElevation", ["maxElevation"])
+    .index("by_catalogNumber", ["catalogNumber"])
+    .index("by_altCatalogNumber", ["altCatalogNumber"])
     .searchIndex("search_fullName", {
       searchField: "fullName",
     })
@@ -94,6 +98,9 @@ export default defineSchema({
     })
     .searchIndex("search_preparations", {
       searchField: "preparations",
+    })
+    .searchIndex("search_localityName", {
+      searchField: "localityName",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.
