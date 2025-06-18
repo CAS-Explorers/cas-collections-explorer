@@ -33,6 +33,7 @@ export const Plant = {
   maxElevation: v.union(v.float64(), v.string()),
   minElevation: v.union(v.float64(), v.string()),
   modifier: v.string(),
+  herbarium: v.string(),
   order: v.string(),
   originalElevationUnit: v.string(),
   preparations: v.string(),
