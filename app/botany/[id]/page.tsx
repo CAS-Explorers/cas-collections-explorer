@@ -168,6 +168,11 @@ export default function PlantPage() {
                   <p className="text-sm text-muted-foreground">Preparations</p>
                   <p className="font-medium">{plant.preparations}</p>
                 </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Herbarium</p>
+                  <p className="font-medium">{plant.herbarium}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -183,7 +188,7 @@ export default function PlantPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
                 <p className="text-sm text-muted-foreground">Family</p>
                 <p className="font-medium">{plant.family}</p>
@@ -197,6 +202,11 @@ export default function PlantPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Class</p>
                 <p className="font-medium">{plant.class}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">Genus</p>
+                <p className="font-medium">{plant.genus}</p>
               </div>
             </div>
 
@@ -214,7 +224,7 @@ export default function PlantPage() {
 
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Collection Date
+                    Verbatim Date
                   </p>
                   <p className="font-medium">{plant.verbatimDate}</p>
                 </div>
@@ -258,7 +268,7 @@ export default function PlantPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-muted-foreground">Town/County</p>
+                  <p className="text-sm text-muted-foreground">County</p>
                   <p className="font-medium">{plant.county}</p>
                 </div>
 
@@ -317,7 +327,7 @@ export default function PlantPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-lg font-medium">Collector&apos;s Notes</h2>
+              <h2 className="text-lg font-medium">Habitat</h2>
               <p className="text-sm">{plant.remarks}</p>
             </div>
 

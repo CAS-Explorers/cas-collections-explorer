@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-
+//TODO: remove modifier since it's the same as herbarium
 export const Plant = {
   cas_id: v.string(),
   altCatalogNumber: v.union(v.float64(), v.string()),
@@ -32,12 +32,11 @@ export const Plant = {
   longitude1: v.union(v.float64(), v.string()),
   maxElevation: v.union(v.float64(), v.string()),
   minElevation: v.union(v.float64(), v.string()),
-  modifier: v.string(),
   herbarium: v.string(),
   order: v.string(),
   originalElevationUnit: v.string(),
   preparations: v.string(),
-  remarks: v.string(),
+  habitat: v.string(),
   species: v.string(),
   startDate: v.union(v.float64(), v.string()),
   state: v.string(),
@@ -108,6 +107,12 @@ export default defineSchema({
     })
     .searchIndex("search_verbatimDate", {
       searchField: "verbatimDate",
+    })
+    .searchIndex("search_genus", {
+      searchField: "genus",
+    })
+    .searchIndex("search_herbarium", {
+      searchField: "herbarium",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.

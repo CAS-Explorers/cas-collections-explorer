@@ -288,6 +288,8 @@ export default function Botany() {
                 <option value="class">Class</option>
                 <option value="order">Order</option>
                 <option value="family">Family</option>
+                <option value="genus">Genus</option>
+                <option value="herbarium">Herbarium</option>
                 <option value="determiner">Determiner</option>
                 <option value="continent">Continent</option>
                 <option value="town">Town</option>
