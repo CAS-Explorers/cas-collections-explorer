@@ -97,7 +97,7 @@ export default function Botany() {
   const searchParams = useSearchParams();
 
   const [searchRules, setSearchRules] = useState<LocalSearchRule[]>([
-    { id: 1, index: "fullName", value: "" },
+    { id: 1, index: "scientificName", value: "" },
   ]);
   const RESULTS_PER_PAGE = 30;
 
@@ -264,7 +264,7 @@ export default function Botany() {
       const addSearchRule = () => {
         setSearchRules((rules) => [
           ...rules,
-          { id: Date.now(), index: "fullName", value: "" },
+          { id: Date.now(), index: "scientificName", value: "" },
         ]);
       };
 
@@ -281,29 +281,42 @@ export default function Botany() {
                 onChange={(e) => handleRuleChange(rule.id, "index", e.target.value)}
                 className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
               >
-                <option value="fullName">Scientific Name</option>
+                <option value="scientificName">Scientific Name</option>
                 <option value="country">Country</option>
                 <option value="collectors">Collectors</option>
                 <option value="state">State</option>
+                <option value="county">County</option>
                 <option value="class">Class</option>
                 <option value="order">Order</option>
                 <option value="family">Family</option>
                 <option value="genus">Genus</option>
+                <option value="species">Species</option>
                 <option value="herbarium">Herbarium</option>
+                <option value="habitat">Habitat</option>
+                <option value="specimenDescription">Specimen Description</option>
+                <option value="localityContinued">Locality Continued</option>
                 <option value="determiner">Determiner</option>
                 <option value="continent">Continent</option>
                 <option value="town">Town</option>
                 <option value="typeStatusName">Type Status</option>
                 <option value="preparations">Preparations</option>
+                <option value="collectionObjectAttachments">Collection Object Attachment</option>
                 <option value="localityName">Locality</option>
                 <option value="determinedDate">Determination Date</option>
                 <option value="verbatimDate">Verbatim Date</option>
-                <option value="catalogNumber">Catalog Number</option>
-                <option value="altCatalogNumber">Alt Catalog Number</option>
+                <option value="barCode">Bar Code</option>
+                <option value="accessionNumber">Accession Number</option>
+                <option value="collectorNumber">Collector Number</option>
                 <option value="minElevation">Min Elevation</option>
                 <option value="maxElevation">Max Elevation</option>
+                <option value="originalElevationUnit">Elevation Unit</option>
                 <option value="latitude1">Latitude</option>
                 <option value="longitude1">Longitude</option>
+                <option value="notes">Notes</option>
+                <option value="phenology">Phenology</option>
+                <option value="redactLocalityCo">Redact Locality Co</option>
+                <option value="redactLocalityTaxon">Redact Locality Taxon</option>
+                <option value="redactLocalityAcceptedTaxon">Redact Locality Accepted Taxon</option>
               </select>
 
               {/* Show numeric filter options for latitude and longitude */}
