@@ -99,7 +99,7 @@ export default function PlantPage() {
             <div className="aspect-[4/3] bg-muted rounded-md overflow-hidden relative">
               <Image
                 src={getValidImageUrl(images[selectedImage])}
-                alt={plant.fullName}
+                alt={plant.scientificName}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
@@ -116,7 +116,7 @@ export default function PlantPage() {
                 >
                   <Image
                     src={getValidImageUrl(image)}
-                    alt={`${plant.fullName} - image ${index + 1}`}
+                    alt={`${plant.scientificName} - image ${index + 1}`}
                     fill
                     className="object-cover"
                     sizes="80px"
@@ -147,16 +147,9 @@ export default function PlantPage() {
               <div className="grid grid-cols-2 gap-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Catalog Number
+                    Accession Number
                   </p>
-                  <p className="font-medium">{plant.catalogNumber}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Alt. Catalog Number
-                  </p>
-                  <p className="font-medium">{plant.altCatalogNumber}</p>
+                  <p className="font-medium">{plant.accessionNumber}</p>
                 </div>
 
                 <div>
@@ -173,6 +166,34 @@ export default function PlantPage() {
                   <p className="text-sm text-muted-foreground">Herbarium</p>
                   <p className="font-medium">{plant.herbarium}</p>
                 </div>
+
+                {plant.collectionObjectAttachments && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Collection Object Attachment</p>
+                    <p className="font-medium">{plant.collectionObjectAttachments}</p>
+                  </div>
+                )}
+
+                <div>
+                  <dt className="text-sm text-muted-foreground">Bar Code</dt>
+                  <dd className="text-sm text-gray-900">
+                    <p className="font-medium">{plant.barCode}</p>
+                  </dd>
+                </div>
+
+                {plant.collectorNumber && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Collector Number</p>
+                    <p className="font-medium">{plant.collectorNumber}</p>
+                  </div>
+                )}
+
+                {plant.timestampModified && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Timestamp Modified</p>
+                    <p className="font-medium">{plant.timestampModified}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -181,10 +202,10 @@ export default function PlantPage() {
           <div className="space-y-8">
             <div>
               <h1 className="text-3xl font-bold text-[#4b5320] mb-1">
-                <span className="italic">{plant.fullName}</span>
+                <span className="italic">{plant.scientificName}</span>
               </h1>
               <p className="text-xl text-muted-foreground italic mb-4">
-                {plant.fullName}
+                {plant.scientificName}
               </p>
             </div>
 
@@ -208,6 +229,11 @@ export default function PlantPage() {
                 <p className="text-sm text-muted-foreground">Genus</p>
                 <p className="font-medium">{plant.genus}</p>
               </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">Species</p>
+                <p className="font-medium">{plant.species}</p>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -230,18 +256,95 @@ export default function PlantPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-muted-foreground">Determined By</p>
+                  <p className="text-sm text-muted-foreground">Determiner</p>
                   <p className="font-medium">{plant.determiner}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Determination Date
+                    Determined Date
                   </p>
                   <p className="font-medium">{plant.determinedDate}</p>
                 </div>
+
+                {plant.notes && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Notes</p>
+                    <p className="font-medium">{plant.notes}</p>
+                  </div>
+                )}
+
+                {plant.phenology && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phenology</p>
+                    <p className="font-medium">{plant.phenology}</p>
+                  </div>
+                )}
+
+                {plant.startDateYear && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Start Date</p>
+                    <p className="font-medium">
+                      {plant.startDateMonth && plant.startDateDay ? `${plant.startDateMonth}/${plant.startDateDay}/` : ''}{plant.startDateYear}
+                    </p>
+                  </div>
+                )}
+
+                {plant.endDateYear && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">End Date</p>
+                    <p className="font-medium">
+                      {plant.endDateMonth && plant.endDateDay ? `${plant.endDateMonth}/${plant.endDateDay}/` : ''}{plant.endDateYear}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
+
+            {(plant.redactLocalityCo || plant.redactLocalityTaxon || plant.redactLocalityAcceptedTaxon) && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-medium flex items-center text-[#4b5320]">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
+                  Redaction Settings
+                </h2>
+
+                <div className="grid grid-cols-2 gap-y-4">
+                  {plant.redactLocalityCo && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Redact Locality Co</p>
+                      <p className="font-medium">{plant.redactLocalityCo}</p>
+                    </div>
+                  )}
+
+                  {plant.redactLocalityTaxon && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Redact Locality Taxon</p>
+                      <p className="font-medium">{plant.redactLocalityTaxon}</p>
+                    </div>
+                  )}
+
+                  {plant.redactLocalityAcceptedTaxon && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Redact Locality Accepted Taxon</p>
+                      <p className="font-medium">{plant.redactLocalityAcceptedTaxon}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               <h2 className="text-lg font-medium flex items-center text-[#4b5320]">
@@ -272,10 +375,22 @@ export default function PlantPage() {
                   <p className="font-medium">{plant.county}</p>
                 </div>
 
+                <div>
+                  <p className="text-sm text-muted-foreground">Town</p>
+                  <p className="font-medium">{plant.town}</p>
+                </div>
+
                 <div className="col-span-2">
                   <p className="text-sm text-muted-foreground">Locality</p>
                   <p className="font-medium">{plant.localityName}</p>
                 </div>
+
+                {plant.localityContinued && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Locality Continued</p>
+                    <p className="font-medium">{plant.localityContinued}</p>
+                  </div>
+                )}
 
                 <div className="col-span-2 h-[300px] rounded-lg overflow-hidden">
                   {plant.latitude1 && plant.longitude1 ? (
@@ -323,13 +438,25 @@ export default function PlantPage() {
                     {plant.originalElevationUnit}
                   </p>
                 </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Elevation Unit</p>
+                  <p className="font-medium">{plant.originalElevationUnit}</p>
+                </div>
               </div>
             </div>
 
             <div className="space-y-4">
               <h2 className="text-lg font-medium">Habitat</h2>
-              <p className="text-sm">{plant.remarks}</p>
+              <p className="text-sm">{plant.habitat}</p>
             </div>
+
+            {plant.specimenDescription && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-medium">Specimen Description</h2>
+                <p className="text-sm">{plant.specimenDescription}</p>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-3">
               <Button

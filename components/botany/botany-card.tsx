@@ -28,7 +28,7 @@ export function BotanyCard({ plant }: PlantCardProps) {
       imageSrc && (
         <Image
           src={imageSrc}
-          alt={plant.fullName}
+          alt={plant.scientificName}
           fill
           priority
           loading="eager"
@@ -44,11 +44,49 @@ export function BotanyCard({ plant }: PlantCardProps) {
     return (
       <CardContent className="p-4">
         <h2 className="text-xl font-sans italic tracking-tight mb-1 line-clamp-1">
-          {plant.fullName}
+          {plant.scientificName}
         </h2>
         <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
           {plant.family}
         </p>
+        <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+          Species: {plant.species}
+        </p>
+        {plant.specimenDescription && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+            {plant.specimenDescription}
+          </p>
+        )}
+
+        {plant.notes && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+            Notes: {plant.notes}
+          </p>
+        )}
+
+        {plant.phenology && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            Phenology: {plant.phenology}
+          </p>
+        )}
+
+        {plant.timestampModified && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            Modified: {plant.timestampModified}
+          </p>
+        )}
+
+        {plant.startDateYear && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            Start Date: {plant.startDateMonth && plant.startDateDay ? `${plant.startDateMonth}/${plant.startDateDay}/` : ''}{plant.startDateYear}
+          </p>
+        )}
+
+        {plant.endDateYear && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            End Date: {plant.endDateMonth && plant.endDateDay ? `${plant.endDateMonth}/${plant.endDateDay}/` : ''}{plant.endDateYear}
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-2">
           <Badge
@@ -69,11 +107,31 @@ export function BotanyCard({ plant }: PlantCardProps) {
           <div className="flex items-center text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 mr-1" />
             <span className="line-clamp-1">
-              {plant.county} {plant.state}
+              County: {plant.county}
             </span>
           </div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span className="line-clamp-1">
+              State: {plant.state}
+            </span>
+          </div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span className="line-clamp-1">
+              Town: {plant.town}
+            </span>
+          </div>
+          {plant.originalElevationUnit && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span className="line-clamp-1">
+                Elevation Unit: {plant.originalElevationUnit}
+              </span>
+            </div>
+          )}
           <div className="flex flex-row-reverse items-center text-sm text-muted-foreground mt-auto">
-            <span className="line-clamp-1">{plant.catalogNumber}</span>
+            <span className="line-clamp-1">{plant.barCode}</span>
             <Tag className="h-4 w-4 mr-1" />
           </div>
         </div>
