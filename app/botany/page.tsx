@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
-import { usePaginatedQuery } from "convex/react";
+import { useQuery, usePaginatedQuery } from "convex/react";
+import { PlusCircle, Trash2 } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useDebouncedCallback } from "use-debounce";
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -93,12 +96,85 @@ const formatDate = (dateStr: string): string => {
   return `${year}-${month}-${day}`;
 };
 
+// Define all possible fields for sorting and searching
+const allFields: { value: string; label: string; type: 'text' | 'number' | 'date' }[] = [
+  { value: "scientificName", label: "Scientific Name", type: 'text' },
+  { value: "family", label: "Family", type: 'text' },
+  { value: "order", label: "Order", type: 'text' },
+  { value: "class", label: "Class", type: 'text' },
+  { value: "genus", label: "Genus", type: 'text' },
+  { value: "species", label: "Species", type: 'text' },
+  { value: "country", label: "Country", type: 'text' },
+  { value: "state", label: "State/Province", type: 'text' },
+  { value: "county", label: "County", type: 'text' },
+  { value: "barCode", label: "Barcode", type: 'number' },
+  { value: "accessionNumber", label: "Accession #", type: 'number' },
+  { value: "longitude1", label: "Longitude", type: 'number' },
+  { value: "latitude1", label: "Latitude", type: 'number' },
+  { value: "minElevation", label: "Min Elevation", type: 'number' },
+  { value: "maxElevation", label: "Max Elevation", type: 'number' },
+  { value: "startDateMonth", label: "Start Date Month", type: 'number' },
+  { value: "startDateDay", label: "Start Date Day", type: 'number' },
+  { value: "startDateYear", label: "Start Date Year", type: 'number' },
+  { value: "endDateMonth", label: "End Date Month", type: 'number' },
+  { value: "endDateDay", label: "End Date Day", type: 'number' },
+  { value: "endDateYear", label: "End Date Year", type: 'number' },
+  { value: "collectors", label: "Collectors", type: 'text' },
+  { value: "continent", label: "Continent", type: 'text' },
+  { value: "determinedDate", label: "Determined Date", type: 'text' },
+  { value: "determiner", label: "Determiner", type: 'text' },
+  { value: "habitat", label: "Habitat", type: 'text' },
+  { value: "herbarium", label: "Herbarium", type: 'text' },
+  { value: "localityName", label: "Locality", type: 'text' },
+  { value: "phenology", label: "Phenology", type: 'text' },
+  { value: "preparations", label: "Preparations", type: 'text' },
+  { value: "town", label: "Town", type: 'text' },
+  { value: "typeStatusName", label: "Type Status", type: 'text' },
+  { value: "verbatimDate", label: "Verbatim Date", type: 'text' },
+  { value: "timestampModified", label: "Last Modified", type: 'text' },
+  { value: "notes", label: "Notes", type: 'text' },
+  { value: "redactLocalityCo", label: "Redact Locality Co", type: 'text' },
+  { value: "redactLocalityTaxon", label: "Redact Locality Taxon", type: 'text' },
+  { value: "redactLocalityAcceptedTaxon", label: "Redact Locality Accepted Taxon", type: 'text' },
+];
+
+const operatorGroups = {
+  // ... existing code ...
+};
+
+type Rule = {
+  field: string;
+  operator: string;
+  value: string;
+  secondValue?: string;
+};
+
+type Sort = {
+  field: string;
+  direction: 'asc' | 'desc';
+};
+
+// Add these to the list of fields that use numeric filters
+const numericFields = [
+  "latitude1", "longitude1", "minElevation", "maxElevation",
+  "startDateMonth", "startDateDay", "startDateYear",
+  "endDateMonth", "endDateDay", "endDateYear",
+  "barCode", "accessionNumber"
+];
+
 export default function Botany() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [searchRules, setSearchRules] = useState<LocalSearchRule[]>([
     { id: 1, index: "scientificName", value: "" },
   ]);
+  const [sort, setSort] = useState<Sort>({
+    field: "scientificName",
+    direction: "asc",
+  });
+
   const RESULTS_PER_PAGE = 30;
 
   const {
@@ -125,7 +201,6 @@ export default function Botany() {
             field: rule.index,
             operator: rule.textFilter.type,
             value: rule.textFilter.value,
-            // For text filters, we don't send secondValue as it's handled differently in the backend
           };
         }
         return {
@@ -134,8 +209,9 @@ export default function Botany() {
           value: rule.value
         };
       }),
+      sort,
     },
-    { initialNumItems: RESULTS_PER_PAGE }
+    { initialNumItems: 20 }
   );
 
   const handleSearch = useCallback(async () => {
@@ -163,39 +239,24 @@ export default function Botany() {
     setSearchRules((rules) =>
       rules.map((rule) => {
         if (rule.id === id) {
-          // If changing to a numeric field, clear the value and set up numericFilter
-          if (key === "index" && (newValue === "latitude1" || newValue === "longitude1" || 
-                                 newValue === "minElevation" || newValue === "maxElevation" ||
-                                 newValue === "startDateMonth" || newValue === "startDateDay" || newValue === "startDateYear" ||
-                                 newValue === "endDateMonth" || newValue === "endDateDay" || newValue === "endDateYear")) {
+          // This handler is for changing the field type
+          if (key === "index") {
+            const isNumeric = numericFields.includes(newValue);
             return {
               ...rule,
-              [key]: newValue,
-              value: "",
-              numericFilter: {
-                type: "=",
-                value: "0"
-              }
+              index: newValue,
+              value: "", // Reset legacy value field
+              numericFilter: isNumeric
+                ? { type: "=", value: "" }
+                : undefined,
+              textFilter: !isNumeric
+                ? { type: "contains", value: "" }
+                : undefined,
             };
           }
-          // If changing to a text field, set up textFilter
-          if (key === "index" && !["latitude1", "longitude1", "minElevation", "maxElevation",
-                                  "startDateMonth", "startDateDay", "startDateYear",
-                                  "endDateMonth", "endDateDay", "endDateYear"].includes(newValue)) {
-            return {
-              ...rule,
-              [key]: newValue,
-              value: "",
-              textFilter: {
-                type: "=",
-                value: ""
-              }
-            };
-          }
-          return { ...rule, [key]: newValue };
         }
         return rule;
-      }),
+      })
     );
   };
 
@@ -248,7 +309,7 @@ export default function Botany() {
 
   const handleLoadMore = () => {
     if (status === "CanLoadMore") {
-      loadMore(RESULTS_PER_PAGE);
+      loadMore(20);
     }
   };
 
@@ -330,11 +391,8 @@ export default function Botany() {
                 <option value="endDateYear">End Date Year</option>
               </select>
 
-              {/* Show numeric filter options for latitude and longitude */}
-              {(rule.index === "latitude1" || rule.index === "longitude1" || 
-                rule.index === "minElevation" || rule.index === "maxElevation" ||
-                rule.index === "startDateMonth" || rule.index === "startDateDay" || rule.index === "startDateYear" ||
-                rule.index === "endDateMonth" || rule.index === "endDateDay" || rule.index === "endDateYear") && (
+              {/* Show numeric filter options for numeric fields */}
+              {numericFields.includes(rule.index) && (
                 <div className="flex gap-2 items-center">
                   <select
                     value={rule.numericFilter?.type || "="}
@@ -364,9 +422,12 @@ export default function Botany() {
                               rule.index === "startDateMonth" ? "Start Month (1-12)" :
                               rule.index === "startDateDay" ? "Start Day (1-31)" :
                               rule.index === "startDateYear" ? "Start Year" :
-                              rule.index === "endDateMonth" ? "End Month (1-12)" :
+                              rule.index === "endDateMonth" ? "End Month (1-21)" :
                               rule.index === "endDateDay" ? "End Day (1-31)" :
-                              "End Year"}
+                              rule.index === "endDateYear" ? "End Year" :
+                              rule.index === "barCode" ? "Barcode" :
+                              rule.index === "accessionNumber" ? "Accession #" :
+                              "Value"}
                     onChange={(e) => {
                       handleNumericFilterChange(
                         rule.id,
@@ -414,9 +475,7 @@ export default function Botany() {
               )}
 
               {/* Show text filter options for non-numeric fields */}
-              {!["latitude1", "longitude1", "minElevation", "maxElevation", 
-                  "startDateMonth", "startDateDay", "startDateYear",
-                  "endDateMonth", "endDateDay", "endDateYear"].includes(rule.index) && (
+              {!numericFields.includes(rule.index) && (
                 <div className="flex gap-2 items-center">
                   <select
                     value={rule.textFilter?.type || "="}
@@ -515,12 +574,95 @@ export default function Botany() {
   const renderSearchResults = () => {
     return (
       <div className="relative">
-        {/* Results count */}
+        {/* Results count and Sorter */}
         {results && results.length > 0 && (
-          <div className="mb-6 text-gray-600">
-            Showing{" "}
-            <span className="font-medium text-green-700">{results.length}</span>{" "}
-            specimens
+          <div className="mb-6 flex justify-between items-center">
+            <div className="text-gray-600">
+              Showing{" "}
+              <span className="font-medium text-green-700">{results.length}</span>{" "}
+              specimens
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="sort-by" className="text-sm font-medium text-gray-600">Sort by:</label>
+              <select
+                id="sort-by"
+                value={`${sort.field}-${sort.direction}`}
+                onChange={(e) => {
+                  const [field, direction] = e.target.value.split('-');
+                  setSort({ field, direction: direction as 'asc' | 'desc' });
+                }}
+                className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+              >
+                <option value="scientificName-asc">Scientific Name (A-Z)</option>
+                <option value="scientificName-desc">Scientific Name (Z-A)</option>
+                <option value="family-asc">Family (A-Z)</option>
+                <option value="family-desc">Family (Z-A)</option>
+                <option value="order-asc">Order (A-Z)</option>
+                <option value="order-desc">Order (Z-A)</option>
+                <option value="class-asc">Class (A-Z)</option>
+                <option value="class-desc">Class (Z-A)</option>
+                <option value="genus-asc">Genus (A-Z)</option>
+                <option value="genus-desc">Genus (Z-A)</option>
+                <option value="species-asc">Species (A-Z)</option>
+                <option value="species-desc">Species (Z-A)</option>
+                <option value="country-asc">Country (A-Z)</option>
+                <option value="country-desc">Country (Z-A)</option>
+                <option value="state-asc">State (A-Z)</option>
+                <option value="state-desc">State (Z-A)</option>
+                <option value="county-asc">County (A-Z)</option>
+                <option value="county-desc">County (Z-A)</option>
+                <option value="barCode-asc">Barcode (Asc)</option>
+                <option value="barCode-desc">Barcode (Desc)</option>
+                <option value="accessionNumber-asc">Accession # (Asc)</option>
+                <option value="accessionNumber-desc">Accession # (Desc)</option>
+                <option value="longitude1-asc">Longitude (Asc)</option>
+                <option value="longitude1-desc">Longitude (Desc)</option>
+                <option value="latitude1-asc">Latitude (Asc)</option>
+                <option value="latitude1-desc">Latitude (Desc)</option>
+                <option value="minElevation-asc">Min Elevation (Asc)</option>
+                <option value="minElevation-desc">Min Elevation (Desc)</option>
+                <option value="maxElevation-asc">Max Elevation (Asc)</option>
+                <option value="maxElevation-desc">Max Elevation (Desc)</option>
+                <option value="startDateMonth-asc">Start Date Month (Asc)</option>
+                <option value="startDateMonth-desc">Start Date Month (Desc)</option>
+                <option value="startDateDay-asc">Start Date Day (Asc)</option>
+                <option value="startDateDay-desc">Start Date Day (Desc)</option>
+                <option value="startDateYear-asc">Start Date Year (Asc)</option>
+                <option value="startDateYear-desc">Start Date Year (Desc)</option>
+                <option value="endDateMonth-asc">End Date Month (Asc)</option>
+                <option value="endDateMonth-desc">End Date Month (Desc)</option>
+                <option value="endDateDay-asc">End Date Day (Asc)</option>
+                <option value="endDateDay-desc">End Date Day (Desc)</option>
+                <option value="endDateYear-asc">End Date Year (Asc)</option>
+                <option value="endDateYear-desc">End Date Year (Desc)</option>
+                <option value="collectors-asc">Collectors (A-Z)</option>
+                <option value="collectors-desc">Collectors (Z-A)</option>
+                <option value="continent-asc">Continent (A-Z)</option>
+                <option value="continent-desc">Continent (Z-A)</option>
+                <option value="determinedDate-asc">Determined Date (A-Z)</option>
+                <option value="determinedDate-desc">Determined Date (Z-A)</option>
+                <option value="determiner-asc">Determiner (A-Z)</option>
+                <option value="determiner-desc">Determiner (Z-A)</option>
+                <option value="habitat-asc">Habitat (A-Z)</option>
+                <option value="habitat-desc">Habitat (Z-A)</option>
+                <option value="herbarium-asc">Herbarium (A-Z)</option>
+                <option value="herbarium-desc">Herbarium (Z-A)</option>
+                <option value="localityName-asc">Locality (A-Z)</option>
+                <option value="localityName-desc">Locality (Z-A)</option>
+                <option value="phenology-asc">Phenology (A-Z)</option>
+                <option value="phenology-desc">Phenology (Z-A)</option>
+                <option value="preparations-asc">Preparations (A-Z)</option>
+                <option value="preparations-desc">Preparations (Z-A)</option>
+                <option value="town-asc">Town (A-Z)</option>
+                <option value="town-desc">Town (Z-A)</option>
+                <option value="typeStatusName-asc">Type Status (A-Z)</option>
+                <option value="typeStatusName-desc">Type Status (Z-A)</option>
+                <option value="verbatimDate-asc">Verbatim Date (A-Z)</option>
+                <option value="verbatimDate-desc">Verbatim Date (Z-A)</option>
+                <option value="timestampModified-asc">Last Modified (A-Z)</option>
+                <option value="timestampModified-desc">Last Modified (Z-A)</option>
+              </select>
+            </div>
           </div>
         )}
 

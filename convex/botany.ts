@@ -13,9 +13,17 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "scientificName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName" | "determinedDate" | "verbatimDate" | "genus" | "herbarium" | "habitat" | "species" | "county" | "localityContinued" | "specimenDescription" | "originalElevationUnit" | "collectionObjectAttachments" | "collectorNumber" | "notes" | "phenology" | "redactLocalityCo" | "redactLocalityTaxon" | "redactLocalityAcceptedTaxon" | "timestampModified";
-type SearchIndex = "search_scientificName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName" | "search_determinedDate" | "search_verbatimDate" | "search_genus" | "search_herbarium" | "search_habitat" | "search_species" | "search_county" | "search_localityContinued" | "search_specimenDescription" | "search_originalElevationUnit" | "search_collectionObjectAttachments" | "search_collectorNumber" | "search_notes" | "search_phenology" | "search_redactLocalityCo" | "search_redactLocalityTaxon" | "search_redactLocalityAcceptedTaxon" | "search_timestampModified";
+type SearchField = "scientificName" | "family" | "order" | "class" | "genus" | "species" | "country" | "state" | "county" | "collectors" | "continent" | "determinedDate" | "determiner" | "habitat" | "herbarium" | "localityName" | "phenology" | "preparations" | "town" | "typeStatusName" | "verbatimDate";
+type SearchIndex = `search_${SearchField}`;
 type CoordinateField = "longitude1" | "latitude1" | "barCode" | "accessionNumber" | "minElevation" | "maxElevation" | "startDateMonth" | "startDateDay" | "startDateYear" | "endDateMonth" | "endDateDay" | "endDateYear";
+type SortableField =
+  // All fields are now sortable on the server
+  "scientificName" | "family" | "order" | "class" | "genus" | "species" | "country" | "state" | "county" |
+  "barCode" | "accessionNumber" | "longitude1" | "latitude1" | "minElevation" | "maxElevation" |
+  "startDateMonth" | "startDateDay" | "startDateYear" | "endDateMonth" | "endDateDay" | "endDateYear" |
+  "collectors" | "continent" | "determinedDate" | "determiner" | "habitat" | "herbarium" |
+  "localityName" | "phenology" | "preparations" | "town" | "typeStatusName" |
+  "verbatimDate" | "timestampModified";
 
 export const getPlantById = query({
   args: { id: v.id("botany") },
@@ -27,233 +35,210 @@ export const getPlantById = query({
 
 export const searchPlants = query({
   args: {
-    rules: v.array(v.object({
+    rules: v.array(
+      v.object({
+        field: v.string(),
+        operator: v.string(),
+        value: v.optional(v.union(v.string(), v.number())),
+        secondValue: v.optional(v.union(v.string(), v.number())),
+      })
+    ),
+    sort: v.object({
       field: v.string(),
-      operator: v.string(),
-      value: v.union(v.string(), v.number()),
-      secondValue: v.optional(v.number()),
-    })),
+      direction: v.string(), // 'asc' or 'desc'
+    }),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const { rules, paginationOpts } = args;
+    const { rules, sort, paginationOpts } = args;
 
     // Get valid search rules (non-empty values)
     const validRules = rules.filter(rule => {
-      if (rule.field === "longitude1" || rule.field === "latitude1" || rule.field === "barCode" || rule.field === "accessionNumber" || rule.field === "minElevation" || rule.field === "maxElevation" || rule.field === "startDateMonth" || rule.field === "startDateDay" || rule.field === "startDateYear" || rule.field === "endDateMonth" || rule.field === "endDateDay" || rule.field === "endDateYear") {
-        const numValue = Number(rule.value);
-        return !isNaN(numValue);
-      }
+      if (rule.value === undefined || rule.value === null) return false;
+      if (rule.operator === "between" && (rule.secondValue === undefined || rule.secondValue === null)) return false;
       return String(rule.value).trim() !== "";
     });
 
-    if (!rules.length || validRules.length === 0) {
-      // For the default case (no filters), use pagination
-      return await ctx.db
-        .query("botany")
-        .order("desc")
-        .paginate(paginationOpts);
-    }
+    let queryBuilder;
 
-    // Start with the first rule
-    const firstRule = validRules[0];
+    if (validRules.length === 0) {
+      // If there are no rules, we can't sort using a text search index.
+      // We will fetch all and sort in memory.
+      // This is inefficient for large datasets but required without a dedicated sort index.
+      queryBuilder = ctx.db.query("botany");
 
-    // Handle coordinate-based queries using indexes
-    if (firstRule.field === "longitude1" || firstRule.field === "latitude1" || 
-        firstRule.field === "barCode" || firstRule.field === "accessionNumber" ||
-        firstRule.field === "minElevation" || firstRule.field === "maxElevation" ||
-        firstRule.field === "startDateMonth" || firstRule.field === "startDateDay" || firstRule.field === "startDateYear" ||
-        firstRule.field === "endDateMonth" || firstRule.field === "endDateDay" || firstRule.field === "endDateYear") {
-      const numValue = Number(firstRule.value);
-      if (isNaN(numValue)) {
-        return {
-          page: [],
-          isDone: true,
-          continueCursor: ""
-        };
-      }
-      // Validate ranges
-      if (firstRule.field === "longitude1" && (numValue > 180 || numValue < -180)) {
-        return {
-          page: [],
-          isDone: true,
-          continueCursor: ""
-        };
-      }
-      if (firstRule.field === "latitude1" && (numValue > 90 || numValue < -90)) {
-        return {
-          page: [],
-          isDone: true,
-          continueCursor: ""
-        };
-      }
-      const indexName = firstRule.field === "longitude1" ? "by_longitude" : 
-                       firstRule.field === "latitude1" ? "by_latitude" :
-                       firstRule.field === "barCode" ? "by_barCode" :
-                       firstRule.field === "accessionNumber" ? "by_accessionNumber" :
-                       firstRule.field === "minElevation" ? "by_minElevation" :
-                       firstRule.field === "maxElevation" ? "by_maxElevation" :
-                       firstRule.field === "startDateMonth" ? "by_startDateMonth" :
-                       firstRule.field === "startDateDay" ? "by_startDateDay" :
-                       firstRule.field === "startDateYear" ? "by_startDateYear" :
-                       firstRule.field === "endDateMonth" ? "by_endDateMonth" :
-                       firstRule.field === "endDateDay" ? "by_endDateDay" :
-                       "by_endDateYear";
-      const field = firstRule.field as CoordinateField;
-      let q = ctx.db.query("botany").withIndex(indexName, (q) => {
+    } else {
+      const firstRule = validRules[0];
+
+      if (["longitude1", "latitude1", "barCode", "accessionNumber", "minElevation", "maxElevation", "startDateMonth", "startDateDay", "startDateYear", "endDateMonth", "endDateDay", "endDateYear"].includes(firstRule.field)) {
+        const numValue = Number(firstRule.value);
+        if (isNaN(numValue)) { return { page: [], isDone: true, continueCursor: "" }; }
+
+        let indexName: any = `by_${firstRule.field}`;
+        if (firstRule.field === 'latitude1') indexName = 'by_latitude';
+        if (firstRule.field === 'longitude1') indexName = 'by_longitude';
+        
+        queryBuilder = ctx.db.query("botany").withIndex(indexName, (q: any) => {
+          switch (firstRule.operator) {
+            case "=": return q.eq(firstRule.field, numValue);
+            case "after": return q.gt(firstRule.field, numValue);
+            case "before": return q.lt(firstRule.field, numValue);
+            case "between":
+              const secondValue = Number(firstRule.secondValue);
+              if (isNaN(secondValue)) return q.eq(firstRule.field, NaN);
+              return q.gte(firstRule.field, numValue).lte(firstRule.field, secondValue);
+            default: return q.eq(firstRule.field, NaN);
+          }
+        });
+      } else {
+        let searchValue = String(firstRule.value);
+        const indexName = `search_${firstRule.field}` as SearchIndex;
+        
+        // Handle different text operators for the initial search
         switch (firstRule.operator) {
           case "=":
-            return q.eq(field, numValue);
-          case "after":
-            return q.gt(field, numValue);
-          case "before":
-            return q.lt(field, numValue);
-          case "between":
-            const secondValue = Number(firstRule.secondValue);
-            if (isNaN(secondValue)) {
-              return q.eq(field, NaN); // will return nothing
-            }
-            return q.gte(field, numValue).lte(field, secondValue);
+            // For exact match, we'll use search and filter the results
+            queryBuilder = ctx.db.query("botany").withSearchIndex(indexName, (q) =>
+              q.search(firstRule.field as SearchField, searchValue)
+            );
+            break;
+          case "contains":
+            queryBuilder = ctx.db.query("botany").withSearchIndex(indexName, (q) =>
+              q.search(firstRule.field as SearchField, searchValue)
+            );
+            break;
+          case "contains_any":
+            // For contains_any, search for the first term in the list
+            const terms = searchValue.split(/[,\s]+/).filter(term => term.trim() !== "");
+            const firstTerm = terms[0]; // Use the first term for the search
+            queryBuilder = ctx.db.query("botany").withSearchIndex(indexName, (q) =>
+              q.search(firstRule.field as SearchField, firstTerm)
+            );
+            break;
+          case "in":
+            // For in, we'll search for all values and combine results
+            const values = searchValue.split(/[,\s]+/).filter(v => v.trim() !== "");
+            queryBuilder = ctx.db.query("botany").withSearchIndex(indexName, (q) =>
+              q.search(firstRule.field as SearchField, values.join(" "))
+            );
+            break;
           default:
-            return q.eq(field, NaN); // will return nothing
+            queryBuilder = ctx.db.query("botany").withSearchIndex(indexName, (q) =>
+              q.search(firstRule.field as SearchField, searchValue)
+            );
         }
-      });
-      const paginatedResults = await q.paginate(paginationOpts);
-      // Apply subsequent rules as filters
-      if (validRules.length > 1) {
-        const filteredPage = paginatedResults.page.filter(plant => {
-          for (let i = 1; i < validRules.length; i++) {
-            const rule = validRules[i];
-            if (rule.field === "longitude1" || rule.field === "latitude1" || rule.field === "barCode" || rule.field === "accessionNumber" || rule.field === "minElevation" || rule.field === "maxElevation") {
-              const numValue = Number(rule.value);
-              if (isNaN(numValue)) continue;
-              if (rule.field === "longitude1" && (numValue > 180 || numValue < -180)) continue;
-              if (rule.field === "latitude1" && (numValue > 90 || numValue < -90)) continue;
-              const plantValue = Number(plant[rule.field as CoordinateField]);
-              if (isNaN(plantValue)) return false;
-              switch (rule.operator) {
-                case "=":
-                  if (plantValue !== numValue) return false;
-                  break;
-                case "after":
-                  if (plantValue <= numValue) return false;
-                  break;
-                case "before":
-                  if (plantValue >= numValue) return false;
-                  break;
-                case "between":
-                  const secondValue = Number(rule.secondValue);
-                  if (isNaN(secondValue) || plantValue < numValue || plantValue > secondValue) return false;
-                  break;
-                default:
-                  return false;
-              }
-            } else {
-              let searchTerm = String(rule.value).toLowerCase().trim();
-              if (rule.field === "country") {
-                const countryName = getCountryFromCode(searchTerm);
-                if (countryName) {
-                  searchTerm = countryName.toLowerCase();
-                }
-              }
-              const fieldValue = String(plant[rule.field as SearchField]).toLowerCase();
-              if (!fieldValue.includes(searchTerm)) return false;
-            }
+      }
+    }
+
+    // Use Convex pagination directly
+    const paginatedResults = await queryBuilder.paginate(paginationOpts);
+    
+    // Apply additional filters to the paginated results
+    const filteredPage = paginatedResults.page.filter(plant => {
+      if (validRules.length <= 1) return true;
+      for (let i = 1; i < validRules.length; i++) {
+        const rule = validRules[i];
+        const plantValue = (plant as any)[rule.field];
+
+        if (typeof plantValue === 'number') {
+          const numValue = Number(rule.value);
+          if (isNaN(numValue)) continue;
+          switch (rule.operator) {
+            case "=": if (plantValue !== numValue) return false; break;
+            case "after": if (plantValue <= numValue) return false; break;
+            case "before": if (plantValue >= numValue) return false; break;
+            case "between":
+              const secondValue = Number(rule.secondValue);
+              if (isNaN(secondValue) || plantValue < numValue || plantValue > secondValue) return false;
+              break;
+            default: return false;
           }
-          return true;
-        });
-        return {
-          ...paginatedResults,
-          page: filteredPage
-        };
+        } else {
+          const searchTerm = String(rule.value).toLowerCase().trim();
+          const fieldValue = String(plantValue).toLowerCase();
+          
+          switch (rule.operator) {
+            case "=":
+              // Exact match
+              if (fieldValue !== searchTerm) return false;
+              break;
+            case "contains":
+              // Substring match - searchTerm should be found within fieldValue
+              if (!fieldValue.includes(searchTerm)) return false;
+              break;
+            case "contains_any":
+              // Contains the first matching term from the comma-separated list
+              const terms = searchTerm.split(/[,\s]+/).filter(term => term.trim() !== "");
+              const firstMatch = terms.find(term => fieldValue.includes(term.trim()));
+              if (!firstMatch) return false;
+              break;
+            case "in":
+              // Matches any of the specified exact values (comma-separated)
+              const values = searchTerm.split(/[,\s]+/).filter(v => v.trim() !== "");
+              if (!values.some(value => fieldValue === value.trim())) return false;
+              break;
+            default:
+              // Default to contains behavior
+              if (!fieldValue.includes(searchTerm)) return false;
+          }
+        }
       }
-      return paginatedResults;
-    }
-
-    // Use search index for non-numeric fields
-    let searchValue = String(firstRule.value);
-    if (firstRule.field === "country") {
-      const countryName = getCountryFromCode(searchValue);
-      if (countryName) {
-        searchValue = countryName;
-      }
-    }
-
-    const indexName = `search_${firstRule.field}` as SearchIndex;
-    const q = ctx.db.query("botany").withSearchIndex(indexName, (q) => {
-      switch (firstRule.operator) {
-                case "=":
-          // For exact match, we'll use search and filter the results
-          return q.search(firstRule.field as SearchField, searchValue);
-        case "contains":
-          return q.search(firstRule.field as SearchField, searchValue);
-        case "contains_any":
-          // For contains_any, join all terms with spaces to search for any of them
-          const terms = searchValue.split(/[,\s]+/).filter(term => term.trim() !== "");
-          // Convert country codes to full names if we're searching by country
-          const searchTerms = firstRule.field === "country" 
-            ? terms.map(term => {
-                const countryName = getCountryFromCode(term);
-                return countryName || term;
-              })
-            : terms;
-          return q.search(firstRule.field as SearchField, searchTerms.join(" "));
-        case "in":
-          // For in, we'll search for all values and combine results
-          const values = searchValue.split(/[,\s]+/).filter(v => v.trim() !== "");
-          return q.search(firstRule.field as SearchField, values.join(" "));
-                default:
-          return q.search(firstRule.field as SearchField, searchValue);
-              }
+      return true;
     });
 
-    const paginatedResults = await q.paginate(paginationOpts);
-
-    // For exact matches, we need to filter the results
-    if (firstRule.operator === "=") {
-      const filteredPage = paginatedResults.page.filter((plant: Doc<"botany">) => {
-        const fieldValue = String(plant[firstRule.field as SearchField]).toLowerCase();
-        // For determinedDate, we want exact string matching
-        if (firstRule.field === "determinedDate") {
-          return fieldValue === searchValue.toLowerCase();
+    // Also apply the first rule's text operator filtering if it's a text field
+    let finalFilteredPage = filteredPage;
+    if (validRules.length > 0 && !["longitude1", "latitude1", "barCode", "accessionNumber", "minElevation", "maxElevation", "startDateMonth", "startDateDay", "startDateYear", "endDateMonth", "endDateDay", "endDateYear"].includes(validRules[0].field)) {
+      const firstRule = validRules[0];
+      const searchTerm = String(firstRule.value).toLowerCase().trim();
+      
+      finalFilteredPage = filteredPage.filter(plant => {
+        const fieldValue = String((plant as any)[firstRule.field]).toLowerCase();
+        
+        switch (firstRule.operator) {
+          case "=":
+            return fieldValue === searchTerm;
+          case "contains":
+            return fieldValue.includes(searchTerm);
+          case "contains_any":
+            const terms = searchTerm.split(/[,\s]+/).filter(term => term.trim() !== "");
+            const firstMatch = terms.find(term => fieldValue.includes(term.trim()));
+            return firstMatch !== undefined;
+          case "in":
+            const values = searchTerm.split(/[,\s]+/).filter(v => v.trim() !== "");
+            return values.some(value => fieldValue === value.trim());
+          default:
+            return fieldValue.includes(searchTerm);
         }
-        return fieldValue === searchValue.toLowerCase();
       });
-      return {
-        ...paginatedResults,
-        page: filteredPage
-      };
     }
 
-    // For contains_any, we need to filter the results to match any of the terms
-    if (firstRule.operator === "contains_any") {
-      // Split by both comma and space, then filter out empty strings
-      const terms = searchValue.split(/[,\s]+/).filter(term => term.trim() !== "").map(term => term.trim().toLowerCase());
-      
-      // Filter the results to match any of the terms
-      const filteredPage = paginatedResults.page.filter((plant: Doc<"botany">) => {
-        const fieldValue = String(plant[firstRule.field as SearchField]).toLowerCase();
-        // Check if the field value contains any of the terms
-        return terms.some(term => {
-          // For country field, handle country codes
-          if (firstRule.field === "country") {
-            const countryName = getCountryFromCode(term);
-                if (countryName) {
-              return fieldValue.includes(countryName.toLowerCase());
-                }
-              }
-          return fieldValue.includes(term);
-        });
-      });
+    // Sort the filtered page
+    const sortedPage = finalFilteredPage.sort((a, b) => {
+      const fieldA = (a as any)[sort.field as SortableField];
+      const fieldB = (b as any)[sort.field as SortableField];
 
-      // Return the filtered results with the original pagination info
-        return {
-          ...paginatedResults,
-          page: filteredPage
-        };
+      // Handle null or undefined values by placing them at the end
+      if (fieldA == null) return 1;
+      if (fieldB == null) return -1;
+
+      if (typeof fieldA === 'number' && typeof fieldB === 'number') {
+        return sort.direction === 'asc' ? fieldA - fieldB : fieldB - fieldA;
       }
+      
+      const stringA = String(fieldA).toLowerCase();
+      const stringB = String(fieldB).toLowerCase();
 
-      return paginatedResults;
+      if (stringA < stringB) return sort.direction === 'asc' ? -1 : 1;
+      if (stringA > stringB) return sort.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return {
+      page: sortedPage,
+      isDone: paginatedResults.isDone,
+      continueCursor: paginatedResults.continueCursor,
+    };
   },
 });
 //Use again if we need more space
