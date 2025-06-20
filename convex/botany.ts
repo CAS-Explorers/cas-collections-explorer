@@ -13,9 +13,9 @@ export type SearchRule = {
   secondValue?: number;
 };
 
-type SearchField = "scientificName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName" | "determinedDate" | "verbatimDate" | "genus" | "herbarium" | "habitat" | "species" | "county" | "localityContinued" | "specimenDescription" | "originalElevationUnit" | "collectionObjectAttachments" | "collectorNumber" | "startDateMonth" | "startDateDay" | "startDateYear" | "endDateMonth" | "endDateDay" | "endDateYear" | "notes" | "phenology" | "redactLocalityCo" | "redactLocalityTaxon" | "redactLocalityAcceptedTaxon";
-type SearchIndex = "search_scientificName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName" | "search_determinedDate" | "search_verbatimDate" | "search_genus" | "search_herbarium" | "search_habitat" | "search_species" | "search_county" | "search_localityContinued" | "search_specimenDescription" | "search_originalElevationUnit" | "search_collectionObjectAttachments" | "search_collectorNumber" | "search_startDateMonth" | "search_startDateDay" | "search_startDateYear" | "search_endDateMonth" | "search_endDateDay" | "search_endDateYear" | "search_notes" | "search_phenology" | "search_redactLocalityCo" | "search_redactLocalityTaxon" | "search_redactLocalityAcceptedTaxon";
-type CoordinateField = "longitude1" | "latitude1" | "barCode" | "accessionNumber" | "minElevation" | "maxElevation";
+type SearchField = "scientificName" | "country" | "collectors" | "state" | "class" | "order" | "family" | "determiner" | "continent" | "town" | "typeStatusName" | "preparations" | "localityName" | "determinedDate" | "verbatimDate" | "genus" | "herbarium" | "habitat" | "species" | "county" | "localityContinued" | "specimenDescription" | "originalElevationUnit" | "collectionObjectAttachments" | "collectorNumber" | "notes" | "phenology" | "redactLocalityCo" | "redactLocalityTaxon" | "redactLocalityAcceptedTaxon" | "timestampModified";
+type SearchIndex = "search_scientificName" | "search_country" | "search_collectors" | "search_state" | "search_class" | "search_order" | "search_family" | "search_determiner" | "search_continent" | "search_town" | "search_typeStatusName" | "search_preparations" | "search_localityName" | "search_determinedDate" | "search_verbatimDate" | "search_genus" | "search_herbarium" | "search_habitat" | "search_species" | "search_county" | "search_localityContinued" | "search_specimenDescription" | "search_originalElevationUnit" | "search_collectionObjectAttachments" | "search_collectorNumber" | "search_notes" | "search_phenology" | "search_redactLocalityCo" | "search_redactLocalityTaxon" | "search_redactLocalityAcceptedTaxon" | "search_timestampModified";
+type CoordinateField = "longitude1" | "latitude1" | "barCode" | "accessionNumber" | "minElevation" | "maxElevation" | "startDateMonth" | "startDateDay" | "startDateYear" | "endDateMonth" | "endDateDay" | "endDateYear";
 
 export const getPlantById = query({
   args: { id: v.id("botany") },
@@ -40,7 +40,7 @@ export const searchPlants = query({
 
     // Get valid search rules (non-empty values)
     const validRules = rules.filter(rule => {
-      if (rule.field === "longitude1" || rule.field === "latitude1" || rule.field === "barCode" || rule.field === "accessionNumber" || rule.field === "minElevation" || rule.field === "maxElevation") {
+      if (rule.field === "longitude1" || rule.field === "latitude1" || rule.field === "barCode" || rule.field === "accessionNumber" || rule.field === "minElevation" || rule.field === "maxElevation" || rule.field === "startDateMonth" || rule.field === "startDateDay" || rule.field === "startDateYear" || rule.field === "endDateMonth" || rule.field === "endDateDay" || rule.field === "endDateYear") {
         const numValue = Number(rule.value);
         return !isNaN(numValue);
       }
@@ -61,7 +61,9 @@ export const searchPlants = query({
     // Handle coordinate-based queries using indexes
     if (firstRule.field === "longitude1" || firstRule.field === "latitude1" || 
         firstRule.field === "barCode" || firstRule.field === "accessionNumber" ||
-        firstRule.field === "minElevation" || firstRule.field === "maxElevation") {
+        firstRule.field === "minElevation" || firstRule.field === "maxElevation" ||
+        firstRule.field === "startDateMonth" || firstRule.field === "startDateDay" || firstRule.field === "startDateYear" ||
+        firstRule.field === "endDateMonth" || firstRule.field === "endDateDay" || firstRule.field === "endDateYear") {
       const numValue = Number(firstRule.value);
       if (isNaN(numValue)) {
         return {
@@ -90,7 +92,13 @@ export const searchPlants = query({
                        firstRule.field === "barCode" ? "by_barCode" :
                        firstRule.field === "accessionNumber" ? "by_accessionNumber" :
                        firstRule.field === "minElevation" ? "by_minElevation" :
-                       "by_maxElevation";
+                       firstRule.field === "maxElevation" ? "by_maxElevation" :
+                       firstRule.field === "startDateMonth" ? "by_startDateMonth" :
+                       firstRule.field === "startDateDay" ? "by_startDateDay" :
+                       firstRule.field === "startDateYear" ? "by_startDateYear" :
+                       firstRule.field === "endDateMonth" ? "by_endDateMonth" :
+                       firstRule.field === "endDateDay" ? "by_endDateDay" :
+                       "by_endDateYear";
       const field = firstRule.field as CoordinateField;
       let q = ctx.db.query("botany").withIndex(indexName, (q) => {
         switch (firstRule.operator) {

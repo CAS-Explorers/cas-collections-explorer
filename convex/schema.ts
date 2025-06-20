@@ -8,13 +8,13 @@ export const Plant = {
   accessionNumber: v.union(v.float64(), v.string()),
   barCode: v.union(v.float64(), v.string()),
   scientificName: v.string(),
-  endDateMonth: v.string(),
-  endDateDay: v.string(),
-  endDateYear: v.string(),
+  endDateMonth: v.union(v.number(), v.string()),
+  endDateDay: v.union(v.number(), v.string()),
+  endDateYear: v.union(v.number(), v.string()),
   phenology: v.string(),
-  startDateMonth: v.string(),
-  startDateDay: v.string(),
-  startDateYear: v.string(),
+  startDateMonth: v.union(v.number(), v.string()),
+  startDateDay: v.union(v.number(), v.string()),
+  startDateYear: v.union(v.number(), v.string()),
   class: v.string(),
   notes: v.string(),
   redactLocalityCo: v.string(),
@@ -64,6 +64,12 @@ export default defineSchema({
     .index("by_maxElevation", ["maxElevation"])
     .index("by_barCode", ["barCode"])
     .index("by_accessionNumber", ["accessionNumber"])
+    .index("by_startDateMonth", ["startDateMonth"])
+    .index("by_startDateDay", ["startDateDay"])
+    .index("by_startDateYear", ["startDateYear"])
+    .index("by_endDateMonth", ["endDateMonth"])
+    .index("by_endDateDay", ["endDateDay"])
+    .index("by_endDateYear", ["endDateYear"])
     .searchIndex("search_country", {
       searchField: "country",
     })
@@ -142,24 +148,6 @@ export default defineSchema({
     .searchIndex("search_collectionObjectAttachments", {
       searchField: "collectionObjectAttachments",
     })
-    .searchIndex("search_startDateMonth", {
-      searchField: "startDateMonth",
-    })
-    .searchIndex("search_startDateDay", {
-      searchField: "startDateDay",
-    })
-    .searchIndex("search_startDateYear", {
-      searchField: "startDateYear",
-    })
-    .searchIndex("search_endDateMonth", {
-      searchField: "endDateMonth",
-    })
-    .searchIndex("search_endDateDay", {
-      searchField: "endDateDay",
-    })
-    .searchIndex("search_endDateYear", {
-      searchField: "endDateYear",
-    })
     .searchIndex("search_notes", {
       searchField: "notes",
     })
@@ -174,6 +162,9 @@ export default defineSchema({
     })
     .searchIndex("search_redactLocalityAcceptedTaxon", {
       searchField: "redactLocalityAcceptedTaxon",
+    })
+    .searchIndex("search_timestampModified", {
+      searchField: "timestampModified",
     }),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.

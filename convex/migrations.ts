@@ -152,3 +152,200 @@ export const findNonEmptyRedactLocalityAcceptedTaxon = mutation({
   }
 });
 
+export const convertStartDateYearToInteger = mutation({
+  args: {
+    cursor: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    // Get documents using pagination with cursor
+    const result = await ctx.db
+      .query("botany")
+      .withIndex("by_barCode")
+      .order("asc")
+      .paginate({ 
+        numItems: 1000,
+        cursor: args.cursor || null
+      });
+    
+    const plants = result.page;
+    let totalProcessed = 0;
+    let convertedCount = 0;
+    
+    // Update each document to convert startDateYear from string to integer
+    for (const plant of plants) {
+      totalProcessed++;
+      if (plant.startDateYear && typeof plant.startDateYear === 'string') {
+        const year = parseInt(plant.startDateYear);
+        if (!isNaN(year)) {
+          await ctx.db.patch(plant._id, {
+            startDateYear: year
+          });
+          convertedCount++;
+        }
+      }
+    }
+    
+    console.log(`Processed ${totalProcessed} documents, converted ${convertedCount} startDateYear fields`);
+    
+    return { 
+      success: true,
+      totalProcessed,
+      convertedCount,
+      cursor: result.continueCursor,
+      isDone: result.isDone
+    };
+  }
+});
+
+export const convertEndDateMonthToInteger = mutation({
+  args: {
+    cursor: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    // Get documents using pagination with cursor
+    const result = await ctx.db
+      .query("botany")
+      .withIndex("by_barCode")
+      .order("asc")
+      .paginate({ 
+        numItems: 1000,
+        cursor: args.cursor || null
+      });
+    
+    const plants = result.page;
+    let totalProcessed = 0;
+    let convertedCount = 0;
+    
+    // Update each document to convert endDateMonth from string to integer
+    for (const plant of plants) {
+      totalProcessed++;
+      if (plant.endDateMonth && typeof plant.endDateMonth === 'string') {
+        const month = parseInt(plant.endDateMonth);
+        if (!isNaN(month)) {
+          await ctx.db.patch(plant._id, {
+            endDateMonth: month
+          });
+          convertedCount++;
+        }
+      }
+    }
+    
+    console.log(`Processed ${totalProcessed} documents, converted ${convertedCount} endDateMonth fields`);
+    
+    return { 
+      success: true,
+      totalProcessed,
+      convertedCount,
+      cursor: result.continueCursor,
+      isDone: result.isDone
+    };
+  }
+});
+
+export const convertEndDateDayToInteger = mutation({
+  args: {
+    cursor: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    // Get documents using pagination with cursor
+    const result = await ctx.db
+      .query("botany")
+      .withIndex("by_barCode")
+      .order("asc")
+      .paginate({ 
+        numItems: 1000,
+        cursor: args.cursor || null
+      });
+    
+    const plants = result.page;
+    let totalProcessed = 0;
+    let convertedCount = 0;
+    
+    // Update each document to convert endDateDay from string to integer
+    for (const plant of plants) {
+      totalProcessed++;
+      if (plant.endDateDay && typeof plant.endDateDay === 'string') {
+        const day = parseInt(plant.endDateDay);
+        if (!isNaN(day)) {
+          await ctx.db.patch(plant._id, {
+            endDateDay: day
+          });
+          convertedCount++;
+        }
+      }
+    }
+    
+    console.log(`Processed ${totalProcessed} documents, converted ${convertedCount} endDateDay fields`);
+    
+    return { 
+      success: true,
+      totalProcessed,
+      convertedCount,
+      cursor: result.continueCursor,
+      isDone: result.isDone
+    };
+  }
+});
+
+export const convertEndDateYearToInteger = mutation({
+  args: {
+    cursor: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    // Get documents using pagination with cursor
+    const result = await ctx.db
+      .query("botany")
+      .withIndex("by_barCode")
+      .order("asc")
+      .paginate({ 
+        numItems: 1000,
+        cursor: args.cursor || null
+      });
+    
+    const plants = result.page;
+    let totalProcessed = 0;
+    let convertedCount = 0;
+    
+    // Update each document to convert endDateYear from string to integer
+    for (const plant of plants) {
+      totalProcessed++;
+      if (plant.endDateYear && typeof plant.endDateYear === 'string') {
+        const year = parseInt(plant.endDateYear);
+        if (!isNaN(year)) {
+          await ctx.db.patch(plant._id, {
+            endDateYear: year
+          });
+          convertedCount++;
+        }
+      }
+    }
+    
+    console.log(`Processed ${totalProcessed} documents, converted ${convertedCount} endDateYear fields`);
+    
+    return { 
+      success: true,
+      totalProcessed,
+      convertedCount,
+      cursor: result.continueCursor,
+      isDone: result.isDone
+    };
+  }
+});
+
+export const copyDataToProduction = mutation({
+  args: {
+    cursor: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    // This would require setting up cross-environment access
+    // You'd need to configure this with proper environment variables
+    console.log("This is a template for cross-environment data copying");
+    console.log("You would need to set up proper environment configuration");
+    
+    return {
+      success: false,
+      message: "This is a template - implement with proper environment setup"
+    };
+  }
+});
+

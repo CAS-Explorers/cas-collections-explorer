@@ -165,7 +165,9 @@ export default function Botany() {
         if (rule.id === id) {
           // If changing to a numeric field, clear the value and set up numericFilter
           if (key === "index" && (newValue === "latitude1" || newValue === "longitude1" || 
-                                 newValue === "minElevation" || newValue === "maxElevation")) {
+                                 newValue === "minElevation" || newValue === "maxElevation" ||
+                                 newValue === "startDateMonth" || newValue === "startDateDay" || newValue === "startDateYear" ||
+                                 newValue === "endDateMonth" || newValue === "endDateDay" || newValue === "endDateYear")) {
             return {
               ...rule,
               [key]: newValue,
@@ -177,7 +179,9 @@ export default function Botany() {
             };
           }
           // If changing to a text field, set up textFilter
-          if (key === "index" && !["latitude1", "longitude1", "minElevation", "maxElevation"].includes(newValue)) {
+          if (key === "index" && !["latitude1", "longitude1", "minElevation", "maxElevation",
+                                  "startDateMonth", "startDateDay", "startDateYear",
+                                  "endDateMonth", "endDateDay", "endDateYear"].includes(newValue)) {
             return {
               ...rule,
               [key]: newValue,
@@ -317,11 +321,20 @@ export default function Botany() {
                 <option value="redactLocalityCo">Redact Locality Co</option>
                 <option value="redactLocalityTaxon">Redact Locality Taxon</option>
                 <option value="redactLocalityAcceptedTaxon">Redact Locality Accepted Taxon</option>
+                <option value="timestampModified">Timestamp Modified</option>
+                <option value="startDateMonth">Start Date Month</option>
+                <option value="startDateDay">Start Date Day</option>
+                <option value="startDateYear">Start Date Year</option>
+                <option value="endDateMonth">End Date Month</option>
+                <option value="endDateDay">End Date Day</option>
+                <option value="endDateYear">End Date Year</option>
               </select>
 
               {/* Show numeric filter options for latitude and longitude */}
               {(rule.index === "latitude1" || rule.index === "longitude1" || 
-                rule.index === "minElevation" || rule.index === "maxElevation") && (
+                rule.index === "minElevation" || rule.index === "maxElevation" ||
+                rule.index === "startDateMonth" || rule.index === "startDateDay" || rule.index === "startDateYear" ||
+                rule.index === "endDateMonth" || rule.index === "endDateDay" || rule.index === "endDateYear") && (
                 <div className="flex gap-2 items-center">
                   <select
                     value={rule.numericFilter?.type || "="}
@@ -347,7 +360,13 @@ export default function Botany() {
                     placeholder={rule.index === "latitude1" ? "Latitude" : 
                               rule.index === "longitude1" ? "Longitude" :
                               rule.index === "minElevation" ? "Min Elevation" :
-                              "Max Elevation"}
+                              rule.index === "maxElevation" ? "Max Elevation" :
+                              rule.index === "startDateMonth" ? "Start Month (1-12)" :
+                              rule.index === "startDateDay" ? "Start Day (1-31)" :
+                              rule.index === "startDateYear" ? "Start Year" :
+                              rule.index === "endDateMonth" ? "End Month (1-12)" :
+                              rule.index === "endDateDay" ? "End Day (1-31)" :
+                              "End Year"}
                     onChange={(e) => {
                       handleNumericFilterChange(
                         rule.id,
@@ -364,6 +383,12 @@ export default function Botany() {
                               rule.index === "longitude1" ? "longitude" :
                               rule.index === "minElevation" ? "min elevation" :
                               rule.index === "maxElevation" ? "max elevation" :
+                              rule.index === "startDateMonth" ? "start month" :
+                              rule.index === "startDateDay" ? "start day" :
+                              rule.index === "startDateYear" ? "start year" :
+                              rule.index === "endDateMonth" ? "end month" :
+                              rule.index === "endDateDay" ? "end day" :
+                              rule.index === "endDateYear" ? "end year" :
                               "value"}
                     </span>
                   )}
@@ -389,7 +414,9 @@ export default function Botany() {
               )}
 
               {/* Show text filter options for non-numeric fields */}
-              {!["latitude1", "longitude1", "minElevation", "maxElevation"].includes(rule.index) && (
+              {!["latitude1", "longitude1", "minElevation", "maxElevation", 
+                  "startDateMonth", "startDateDay", "startDateYear",
+                  "endDateMonth", "endDateDay", "endDateYear"].includes(rule.index) && (
                 <div className="flex gap-2 items-center">
                   <select
                     value={rule.textFilter?.type || "="}

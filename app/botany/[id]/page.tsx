@@ -187,6 +187,13 @@ export default function PlantPage() {
                     <p className="font-medium">{plant.collectorNumber}</p>
                   </div>
                 )}
+
+                {plant.timestampModified && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Timestamp Modified</p>
+                    <p className="font-medium">{plant.timestampModified}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -271,6 +278,24 @@ export default function PlantPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Phenology</p>
                     <p className="font-medium">{plant.phenology}</p>
+                  </div>
+                )}
+
+                {plant.startDateYear && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Start Date</p>
+                    <p className="font-medium">
+                      {plant.startDateMonth && plant.startDateDay ? `${plant.startDateMonth}/${plant.startDateDay}/` : ''}{plant.startDateYear}
+                    </p>
+                  </div>
+                )}
+
+                {plant.endDateYear && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">End Date</p>
+                    <p className="font-medium">
+                      {plant.endDateMonth && plant.endDateDay ? `${plant.endDateMonth}/${plant.endDateDay}/` : ''}{plant.endDateYear}
+                    </p>
                   </div>
                 )}
               </div>

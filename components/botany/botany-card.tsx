@@ -70,6 +70,24 @@ export function BotanyCard({ plant }: PlantCardProps) {
           </p>
         )}
 
+        {plant.timestampModified && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            Modified: {plant.timestampModified}
+          </p>
+        )}
+
+        {plant.startDateYear && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            Start Date: {plant.startDateMonth && plant.startDateDay ? `${plant.startDateMonth}/${plant.startDateDay}/` : ''}{plant.startDateYear}
+          </p>
+        )}
+
+        {plant.endDateYear && (
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+            End Date: {plant.endDateMonth && plant.endDateDay ? `${plant.endDateMonth}/${plant.endDateDay}/` : ''}{plant.endDateYear}
+          </p>
+        )}
+
         <div className="flex flex-wrap gap-2 mb-2">
           <Badge
             variant="outline"
