@@ -7,9 +7,6 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useQuery, useMutation } from "convex/react";
-import { PlusCircle, Trash2 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useDebouncedCallback } from "use-debounce";
 import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
 
 // Types for numeric comparisons
@@ -97,59 +94,6 @@ const formatDate = (dateStr: string): string => {
   return `${year}-${month}-${day}`;
 };
 
-// Define all possible fields for sorting and searching
-const allFields: { value: string; label: string; type: 'text' | 'number' | 'date' }[] = [
-  { value: "scientificName", label: "Scientific Name", type: 'text' },
-  { value: "family", label: "Family", type: 'text' },
-  { value: "order", label: "Order", type: 'text' },
-  { value: "class", label: "Class", type: 'text' },
-  { value: "genus", label: "Genus", type: 'text' },
-  { value: "species", label: "Species", type: 'text' },
-  { value: "country", label: "Country", type: 'text' },
-  { value: "state", label: "State/Province", type: 'text' },
-  { value: "county", label: "County", type: 'text' },
-  { value: "barCode", label: "Barcode", type: 'number' },
-  { value: "accessionNumber", label: "Accession #", type: 'number' },
-  { value: "longitude1", label: "Longitude", type: 'number' },
-  { value: "latitude1", label: "Latitude", type: 'number' },
-  { value: "minElevation", label: "Min Elevation", type: 'number' },
-  { value: "maxElevation", label: "Max Elevation", type: 'number' },
-  { value: "startDateMonth", label: "Start Date Month", type: 'number' },
-  { value: "startDateDay", label: "Start Date Day", type: 'number' },
-  { value: "startDateYear", label: "Start Date Year", type: 'number' },
-  { value: "endDateMonth", label: "End Date Month", type: 'number' },
-  { value: "endDateDay", label: "End Date Day", type: 'number' },
-  { value: "endDateYear", label: "End Date Year", type: 'number' },
-  { value: "collectors", label: "Collectors", type: 'text' },
-  { value: "continent", label: "Continent", type: 'text' },
-  { value: "determinedDate", label: "Determined Date", type: 'text' },
-  { value: "determiner", label: "Determiner", type: 'text' },
-  { value: "habitat", label: "Habitat", type: 'text' },
-  { value: "herbarium", label: "Herbarium", type: 'text' },
-  { value: "localityName", label: "Locality", type: 'text' },
-  { value: "phenology", label: "Phenology", type: 'text' },
-  { value: "preparations", label: "Preparations", type: 'text' },
-  { value: "town", label: "Town", type: 'text' },
-  { value: "typeStatusName", label: "Type Status", type: 'text' },
-  { value: "verbatimDate", label: "Verbatim Date", type: 'text' },
-  { value: "timestampModified", label: "Last Modified", type: 'text' },
-  { value: "notes", label: "Notes", type: 'text' },
-  { value: "redactLocalityCo", label: "Redact Locality Co", type: 'text' },
-  { value: "redactLocalityTaxon", label: "Redact Locality Taxon", type: 'text' },
-  { value: "redactLocalityAcceptedTaxon", label: "Redact Locality Accepted Taxon", type: 'text' },
-];
-
-const operatorGroups = {
-  // ... existing code ...
-};
-
-type Rule = {
-  field: string;
-  operator: string;
-  value: string;
-  secondValue?: string;
-};
-
 type Sort = {
   field: string;
   direction: 'asc' | 'desc';
@@ -165,8 +109,10 @@ const numericFields = [
 
 export default function Botany() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
+
+  const [searchMode, setSearchMode] = useState<'basic' | 'advanced'>('basic');
+  const [basicSearchQuery, setBasicSearchQuery] = useState('');
+  const [basicSearchType, setBasicSearchType] = useState<'exact' | 'match_either'>('exact');
 
   const [searchRules, setSearchRules] = useState<LocalSearchRule[]>([
     { id: 1, index: "scientificName", value: "" },
@@ -176,6 +122,7 @@ export default function Botany() {
     direction: "asc",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const RESULTS_PER_PAGE = 30;
   const [currentPage, setCurrentPage] = useState(1);
@@ -189,230 +136,33 @@ export default function Botany() {
     return () => clearTimeout(timer);
   }, [JSON.stringify(searchRules), sort.field, sort.direction]);
 
-  const searchData = useQuery(api.botany.searchPlants, {
-    rules: searchRules.map(rule => {
-      if (rule.numericFilter) {
-        return {
-          field: rule.index,
-          operator: rule.numericFilter.type,
-          value: Number(rule.numericFilter.value),
-          ...(rule.numericFilter.secondValue !== undefined && {
-            secondValue: Number(rule.numericFilter.secondValue)
-          })
-        };
-      }
-      if (rule.textFilter) {
-        return {
-          field: rule.index,
-          operator: rule.textFilter.type,
-          value: rule.textFilter.value,
-        };
-      }
-      return {
-        field: rule.index,
-        operator: "=",
-        value: rule.value
-      };
-    }),
-    sort,
-    pagination: { pageNumber: currentPage, pageSize: RESULTS_PER_PAGE },
-  });
+  // Convert basic search to advanced search rules
+  const getBasicSearchRules = () => {
+    if (!basicSearchQuery.trim()) return [];
+    
+    const terms = basicSearchQuery.trim().split(',').map(t => t.trim()).filter(term => term.length > 0);
+    if (terms.length === 0) return [];
 
-  const totalData = useQuery(api.botany.getTotal, {
-    rules: searchRules.map(rule => {
-      if (rule.numericFilter) {
-        return {
-          field: rule.index,
-          operator: rule.numericFilter.type,
-          value: Number(rule.numericFilter.value),
-          ...(rule.numericFilter.secondValue !== undefined && {
-            secondValue: Number(rule.numericFilter.secondValue)
-          })
-        };
-      }
-      if (rule.textFilter) {
-        return {
-          field: rule.index,
-          operator: rule.textFilter.type,
-          value: rule.textFilter.value,
-        };
-      }
-      return {
-      field: rule.index,
-        operator: "=",
-        value: rule.value
-      };
-    }),
-  });
-
-  // Add debug query to check materialization status
-  const debugInfo = useQuery(api.botany.debugMaterialization, {
-    rules: searchRules.map(rule => {
-      if (rule.numericFilter) {
-        return {
-          field: rule.index,
-          operator: rule.numericFilter.type,
-          value: Number(rule.numericFilter.value),
-          ...(rule.numericFilter.secondValue !== undefined && {
-            secondValue: Number(rule.numericFilter.secondValue)
-          })
-        };
-      }
-      if (rule.textFilter) {
-        return {
-          field: rule.index,
-          operator: rule.textFilter.type,
-          value: rule.textFilter.value,
-        };
-      }
-      return {
-        field: rule.index,
-        operator: "=",
-        value: rule.value
-      };
-    }),
-  });
-
-  // Add temporary debug query for countries
-  const countryInfo = useQuery(api.botany.getSampleCountries, {});
-
-  const totalResults = totalData?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
-
-  const handleSearch = useCallback(async () => {
-    setIsLoading(true);
-    // Reset loading state after a short delay to allow for the query to start
-    setTimeout(() => setIsLoading(false), 1000);
-  }, []); // Empty dependency array since this function doesn't depend on any values
-
-  // Handle URL search params
-  useEffect(() => {
-    const query = searchParams.get("query");
-    if (query) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(query));
-        setSearchRules(parsed);
-        // Reset sort to unsorted for new queries
-        setSort({ field: "", direction: "asc" });
-        // Reset pagination to first page for new queries
-        setCurrentPage(1);
-        handleSearch();
-      } catch {
-        handleSearch();
-      }
+    // Use the new backend operators for basic search
+    if (basicSearchType === 'exact') {
+      // All terms must be found in the same record
+      return [{
+        field: "scientificName", // Field doesn't matter for basic search operators
+        operator: "basic_exact",
+        value: basicSearchQuery.trim()
+      }];
     } else {
-      handleSearch();
-    }
-  }, [searchParams, handleSearch]);
-
-  const handleRuleChange = (id: number, key: string, newValue: string) => {
-    setIsLoading(true);
-    setSearchRules((rules) =>
-      rules.map((rule) => {
-        if (rule.id === id) {
-          // This handler is for changing the field type
-          if (key === "index") {
-            const isNumeric = numericFields.includes(newValue);
-            return {
-              ...rule,
-              index: newValue,
-              value: "", // Reset legacy value field
-              numericFilter: isNumeric
-                ? { type: "=", value: "" }
-                : undefined,
-              textFilter: !isNumeric
-                ? { type: "contains", value: "" }
-                : undefined,
-            };
-          }
-        }
-        return rule;
-      })
-    );
-    // Reset sort to unsorted when search rules change
-    setSort({ field: "", direction: "asc" });
-    // Reset pagination to first page when search rules change
-    setCurrentPage(1);
-    // Reset loading state after a short delay
-    setTimeout(() => setIsLoading(false), 500);
-  };
-
-  const handleNumericFilterChange = (
-    id: number,
-    filterType: NumericFilterType,
-    value: string,
-    secondValue?: string
-  ) => {
-    setIsLoading(true);
-    setSearchRules((rules) =>
-      rules.map((rule) =>
-        rule.id === id
-          ? {
-              ...rule,
-              value: "", // Clear the value field
-              numericFilter: {
-                type: filterType,
-                value,
-                ...(secondValue !== undefined ? { secondValue } : {}),
-              },
-            }
-          : rule
-      )
-    );
-    // Reset sort to unsorted when filters change
-    setSort({ field: "", direction: "asc" });
-    // Reset pagination to first page when filters change
-    setCurrentPage(1);
-    // Reset loading state after a short delay
-    setTimeout(() => setIsLoading(false), 500);
-  };
-
-  const handleTextFilterChange = (
-    id: number,
-    filterType: TextFilterType,
-    value: string,
-    secondValue?: string
-  ) => {
-    setIsLoading(true);
-    setSearchRules((rules) =>
-      rules.map((rule) => {
-        if (rule.id === id) {
-          return {
-            ...rule,
-            value: "", // Clear the value field
-            textFilter: {
-              type: filterType,
-              value: value,
-              ...(secondValue !== undefined ? { secondValue } : {}),
-            },
-          };
-        }
-        return rule;
-      })
-    );
-    // Reset sort to unsorted when filters change
-    setSort({ field: "", direction: "asc" });
-    // Reset pagination to first page when filters change
-    setCurrentPage(1);
-    // Reset loading state after a short delay
-    setTimeout(() => setIsLoading(false), 500);
-  };
-
-  // Add page navigation controls
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setIsLoading(true);
-      setCurrentPage(newPage);
-      // Reset loading state after a short delay
-      setTimeout(() => setIsLoading(false), 500);
+      // At least one term must be found in the same record
+      return [{
+        field: "scientificName", // Field doesn't matter for basic search operators
+        operator: "basic_any",
+        value: basicSearchQuery.trim()
+      }];
     }
   };
 
-  const startMaterializing = useMutation(api.botany.startMaterializingResults);
-
-  useEffect(() => {
-    startMaterializing({
-      rules: searchRules.map(rule => {
+  const searchData = useQuery(api.botany.searchPlants, hasSearched ? {
+    rules: searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
         if (rule.numericFilter) {
           return {
             field: rule.index,
@@ -436,9 +186,189 @@ export default function Botany() {
           value: rule.value
         };
       }),
-      sort,
-    });
-  }, [JSON.stringify(searchRules), JSON.stringify(sort)]);
+    sort,
+    pagination: { pageNumber: currentPage, pageSize: RESULTS_PER_PAGE },
+  } : "skip");
+
+  const totalData = useQuery(api.botany.getTotal, hasSearched ? {
+    rules: searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+      if (rule.numericFilter) {
+        return {
+          field: rule.index,
+          operator: rule.numericFilter.type,
+          value: Number(rule.numericFilter.value),
+          ...(rule.numericFilter.secondValue !== undefined && {
+            secondValue: Number(rule.numericFilter.secondValue)
+          })
+        };
+      }
+      if (rule.textFilter) {
+        return {
+          field: rule.index,
+          operator: rule.textFilter.type,
+          value: rule.textFilter.value,
+        };
+      }
+      return {
+      field: rule.index,
+        operator: "=",
+        value: rule.value
+      };
+    }),
+  } : "skip");
+
+  const totalResults = totalData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
+
+  const handleSearch = useCallback(async () => {
+    setIsLoading(true);
+    setHasSearched(true);
+    // Reset pagination to first page when searching
+    setCurrentPage(1);
+    // Reset loading state after a short delay to allow for the query to start
+    setTimeout(() => setIsLoading(false), 1000);
+  }, []); // Empty dependency array since this function doesn't depend on any values
+
+  // Handle URL search params
+  useEffect(() => {
+    const query = searchParams.get("query");
+    if (query) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(query));
+        setSearchRules(parsed);
+        // Reset sort to unsorted for new queries
+        setSort({ field: "", direction: "asc" });
+        // Reset pagination to first page for new queries
+        setCurrentPage(1);
+        setHasSearched(true);
+        handleSearch();
+      } catch {
+        handleSearch();
+      }
+    }
+  }, [searchParams, handleSearch]);
+
+  const handleRuleChange = (id: number, key: string, newValue: string) => {
+    setSearchRules((rules) =>
+      rules.map((rule) => {
+        if (rule.id === id) {
+          // This handler is for changing the field type
+          if (key === "index") {
+            const isNumeric = numericFields.includes(newValue);
+            return {
+              ...rule,
+              index: newValue,
+              value: "", // Reset legacy value field
+              numericFilter: isNumeric
+                ? { type: "=", value: "" }
+                : undefined,
+              textFilter: !isNumeric
+                ? { type: "contains", value: "" }
+                : undefined,
+            };
+          }
+        }
+        return rule;
+      })
+    );
+    // Reset search state when rules change
+    setHasSearched(false);
+  };
+
+  const handleNumericFilterChange = (
+    id: number,
+    filterType: NumericFilterType,
+    value: string,
+    secondValue?: string
+  ) => {
+    setSearchRules((rules) =>
+      rules.map((rule) =>
+        rule.id === id
+          ? {
+              ...rule,
+              value: "", // Clear the value field
+              numericFilter: {
+                type: filterType,
+                value,
+                ...(secondValue !== undefined ? { secondValue } : {}),
+              },
+            }
+          : rule
+      )
+    );
+    // Reset search state when filters change
+    setHasSearched(false);
+  };
+
+  const handleTextFilterChange = (
+    id: number,
+    filterType: TextFilterType,
+    value: string,
+    secondValue?: string
+  ) => {
+    setSearchRules((rules) =>
+      rules.map((rule) => {
+        if (rule.id === id) {
+          return {
+            ...rule,
+            value: "", // Clear the value field
+            textFilter: {
+              type: filterType,
+              value: value,
+              ...(secondValue !== undefined ? { secondValue } : {}),
+            },
+          };
+        }
+        return rule;
+      })
+    );
+    // Reset search state when filters change
+    setHasSearched(false);
+  };
+
+  // Add page navigation controls
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setIsLoading(true);
+      setCurrentPage(newPage);
+      // Reset loading state after a short delay
+      setTimeout(() => setIsLoading(false), 500);
+    }
+  };
+
+  const startMaterializing = useMutation(api.botany.startMaterializingResults);
+
+  useEffect(() => {
+    if (hasSearched) {
+      startMaterializing({
+        rules: searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+          if (rule.numericFilter) {
+            return {
+              field: rule.index,
+              operator: rule.numericFilter.type,
+              value: Number(rule.numericFilter.value),
+              ...(rule.numericFilter.secondValue !== undefined && {
+                secondValue: Number(rule.numericFilter.secondValue)
+              })
+            };
+          }
+          if (rule.textFilter) {
+            return {
+              field: rule.index,
+              operator: rule.textFilter.type,
+              value: rule.textFilter.value,
+            };
+          }
+          return {
+            field: rule.index,
+            operator: "=",
+            value: rule.value
+          };
+        }),
+        sort,
+      });
+    }
+  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort)]);
 
   const render = () => {
     return (
@@ -452,30 +382,112 @@ export default function Botany() {
   };
 
   const renderSearch = () => {
-    const renderSearchInputAndButton = () => {
+    const renderSearchModeToggle = () => {
+      return (
+        <div className="flex justify-center mb-6">
+          <div className="bg-gray-100 rounded-lg p-1 flex">
+            <button
+              onClick={() => {
+                setSearchMode('basic');
+                setHasSearched(false);
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                searchMode === 'basic'
+                  ? 'bg-white text-green-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Basic Search
+            </button>
+            <button
+              onClick={() => {
+                setSearchMode('advanced');
+                setHasSearched(false);
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                searchMode === 'advanced'
+                  ? 'bg-white text-green-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Advanced Search
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const renderBasicSearch = () => {
+      return (
+        <div className="max-w-2xl mx-auto space-y-4">
+          <div className="flex gap-3 items-center">
+            <Input
+              type="text"
+              value={basicSearchQuery}
+              onChange={(e) => {
+                setBasicSearchQuery(e.target.value);
+                setHasSearched(false);
+              }}
+              placeholder="Enter value(s), separated by commas"
+              className="flex-1"
+            />
+            <div className="relative group">
+              <select
+                value={basicSearchType}
+                onChange={(e) => {
+                  setBasicSearchType(e.target.value as 'exact' | 'match_either');
+                  setHasSearched(false);
+                }}
+                className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
+              >
+                <option value="exact">Exact Match</option>
+                <option value="match_either">Match Any</option>
+              </select>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                {basicSearchType === 'exact' 
+                  ? 'All terms must be found in the same record'
+                  : 'At least one term must be found in the same record'
+                }
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </div>
+            <Button 
+              onClick={handleSearch}
+              disabled={isLoading || !basicSearchQuery.trim()}
+              className={`min-w-[100px] transition-all duration-200 ${
+                isLoading 
+                  ? 'scale-95 bg-green-600' 
+                  : 'hover:scale-105 active:scale-95 bg-green-700 hover:bg-green-600'
+              }`}
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <LoadingSpinner size="sm" text="" />
+                  <span>Searching...</span>
+                </div>
+              ) : (
+                "Search"
+              )}
+            </Button>
+          </div>
+        </div>
+      );
+    };
+
+    const renderAdvancedSearch = () => {
       const addSearchRule = () => {
-        setIsLoading(true);
         setSearchRules((rules) => [
           ...rules,
           { id: Date.now(), index: "scientificName", value: "" },
         ]);
-        // Reset sort to unsorted when adding new rules
-        setSort({ field: "", direction: "asc" });
-        // Reset pagination to first page when adding new rules
-        setCurrentPage(1);
-        // Reset loading state after a short delay
-        setTimeout(() => setIsLoading(false), 500);
+        // Reset search state when adding new rules
+        setHasSearched(false);
       };
 
       const removeSearchRule = (id: number) => {
-        setIsLoading(true);
         setSearchRules((rules) => rules.filter((rule) => rule.id !== id));
-        // Reset sort to unsorted when removing rules
-        setSort({ field: "", direction: "asc" });
-        // Reset pagination to first page when removing rules
-        setCurrentPage(1);
-        // Reset loading state after a short delay
-        setTimeout(() => setIsLoading(false), 500);
+        // Reset search state when removing rules
+        setHasSearched(false);
       };
 
       return (
@@ -685,7 +697,11 @@ export default function Botany() {
             <Button 
               onClick={handleSearch}
               disabled={isLoading}
-              className="min-w-[100px]"
+              className={`min-w-[100px] transition-all duration-200 ${
+                isLoading 
+                  ? 'scale-95 bg-green-600' 
+                  : 'hover:scale-105 active:scale-95 bg-green-700 hover:bg-green-600'
+              }`}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
@@ -718,81 +734,67 @@ export default function Botany() {
           </p>
         </div>
 
+        {renderSearchModeToggle()}
+
         <div className="max-w-2xl mx-auto mb-8">
-          <div className="flex gap-3">{renderSearchInputAndButton()}</div>
+          {searchMode === 'basic' ? renderBasicSearch() : renderAdvancedSearch()}
         </div>
       </div>
     );
   };
 
   const renderSearchResults = () => {
-    // Show loading state when search data is being fetched or when manually loading
-    if (isLoading || !searchData) {
+    // Show initial state when no search has been performed
+    if (!hasSearched) {
       return (
         <div className="w-full flex justify-center py-16">
-          <LoadingCard text={isLoading ? "Searching..." : "Preparing search results..."} />
+          <div className="text-center space-y-4">
+            <div className="text-gray-500">
+              <p className="text-lg">Ready to search</p>
+              <p className="text-sm">
+                {searchMode === 'basic' 
+                  ? 'Enter search terms and click the Search button to begin'
+                  : 'Enter your search criteria and click the Search button to begin'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Show loading state when search data is being fetched or when manually loading
+    if (isLoading) {
+      return (
+        <div className="w-full flex justify-center py-16">
+          <LoadingCard text="Searching..." />
+        </div>
+      );
+    }
+
+    // If we have searched but no data yet, show preparing message
+    if (hasSearched && !searchData) {
+      return (
+        <div className="w-full flex justify-center py-16">
+          <LoadingCard text="Preparing search results..." />
         </div>
       );
     }
 
     return (
       <div className="relative">
-        {/* Debug Info Display */}
-        {debugInfo && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="text-sm font-semibold text-blue-800 mb-2">Materialization Status:</h3>
-            <div className="text-xs text-blue-700 space-y-1">
-              <div>Search ID: {debugInfo.searchId}</div>
-              <div>Current Sort: {sort.field || "unsorted"} {sort.direction}</div>
-              {debugInfo.accumulation && (
-                <div>Accumulating: {debugInfo.accumulation.idCount} IDs</div>
-              )}
-              {debugInfo.results && (
-                <div>Main Results: {debugInfo.results.resultCount} sorted IDs</div>
-              )}
-              {debugInfo.results?.hasMultipleChunks && (
-                <div>Multiple Chunks: {debugInfo.results.totalChunks} total chunks</div>
-              )}
-              {debugInfo.resultChunks && (
-                <div>Additional Chunks: {debugInfo.resultChunks.chunkCount} chunks with {debugInfo.resultChunks.totalChunkResults} IDs</div>
-              )}
-              {debugInfo.totalResultCount > 0 && (
-                <div>Total Combined: {debugInfo.totalResultCount} IDs</div>
-              )}
-              {debugInfo.count !== null && (
-                <div>Expected Count: {debugInfo.count}</div>
-              )}
-              {!debugInfo.accumulation && !debugInfo.results && (
-                <div>Status: No materialization in progress</div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Country Debug Display */}
-        {countryInfo && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="text-sm font-semibold text-green-800 mb-2">Database Info:</h3>
-            <div className="text-xs text-green-700 space-y-1">
-              <div>Total Documents: {countryInfo.totalDocuments}</div>
-              <div>Unique Countries: {countryInfo.uniqueCountries}</div>
-              <div>Sample Countries:</div>
-              <div className="ml-2 text-xs">
-                {countryInfo.sampleCountries.map((country, i) => (
-                  <div key={i}>• {country}</div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Results count and Sorter */}
         {searchData && searchData.page && searchData.page.length > 0 && (
           <div className="mb-6 flex justify-between items-center">
             <div className="text-gray-600">
-              Showing{" "}
+            Showing{" "}
               <span className="font-medium text-green-700">{searchData.page.length}</span>{" "}
-              specimens
+            specimens
+              {searchMode === 'basic' && basicSearchQuery && (
+                <span className="text-sm text-gray-500 ml-2">
+                  for "{basicSearchQuery}" ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <label htmlFor="sort-by" className="text-sm font-medium text-gray-600">Sort by:</label>
@@ -882,24 +884,39 @@ export default function Botany() {
                 <option value="verbatimDate-desc">Verbatim Date (Z-A)</option>
                 <option value="timestampModified-asc">Last Modified (A-Z)</option>
                 <option value="timestampModified-desc">Last Modified (Z-A)</option>
+                <option value="originalElevationUnit-asc">Elevation Unit (A-Z)</option>
+                <option value="originalElevationUnit-desc">Elevation Unit (Z-A)</option>
+                <option value="collectorNumber-asc">Collector Number (A-Z)</option>
+                <option value="collectorNumber-desc">Collector Number (Z-A)</option>
+                <option value="localityContinued-asc">Locality Continued (A-Z)</option>
+                <option value="localityContinued-desc">Locality Continued (Z-A)</option>
+                <option value="redactLocalityCo-asc">Redact Locality Co (A-Z)</option>
+                <option value="redactLocalityCo-desc">Redact Locality Co (Z-A)</option>
+                <option value="redactLocalityTaxon-asc">Redact Locality Taxon (A-Z)</option>
+                <option value="redactLocalityTaxon-desc">Redact Locality Taxon (Z-A)</option>
+                <option value="redactLocalityAcceptedTaxon-asc">Redact Locality Accepted Taxon (A-Z)</option>
+                <option value="redactLocalityAcceptedTaxon-desc">Redact Locality Accepted Taxon (Z-A)</option>
               </select>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-fr">
-          {!searchData.page || searchData.page.length === 0 ? (
+          {!searchData?.page || searchData.page.length === 0 ? (
             <div className="col-span-full text-center py-16">
               <div className="text-gray-500 space-y-2">
                 <p className="text-lg">No results found.</p>
                 <p className="text-sm">
-                  Try adjusting your search terms or filters.
+                  {searchMode === 'basic' && basicSearchQuery
+                    ? `No specimens found for "${basicSearchQuery}" (${basicSearchType === 'exact' ? 'exact match' : 'match any'}). Try different terms or switch to advanced search.`
+                    : 'Try adjusting your search terms or filters.'
+                  }
                 </p>
               </div>
             </div>
           ) : (
             <>
-              {searchData && searchData.page && searchData.page.map((plant: any) => (
+              {searchData.page.map((plant: any) => (
                 <BotanyCard 
                   key={plant._id} 
                   plant={plant} 
@@ -933,22 +950,7 @@ export default function Botany() {
                   {Math.min(currentPage * RESULTS_PER_PAGE, totalResults)}
                   {' '}of {totalResults}
                 </span>
-              </div>
-
-              {/* Debug Panel for Copy-Paste */}
-              <div className="col-span-full mt-8 p-4 bg-gray-100 border border-gray-300 rounded text-xs font-mono whitespace-pre-wrap">
-                <strong>DEBUG PANEL (copy-paste this):</strong>
-                {`\nSort: ${sort.field || 'unsorted'} ${sort.direction}`}
-                {`\nPage: ${currentPage} / ${totalPages} (page size: ${RESULTS_PER_PAGE})`}
-                {`\nTotal results: ${totalResults}`}
-                {`\nFirst 5 scientific names: `}
-                {searchData.page.slice(0, 5).map((p: any) => p?.scientificName).join(' | ')}
-                {`\nLast 5 scientific names: `}
-                {searchData.page.slice(-5).map((p: any) => p?.scientificName).join(' | ')}
-                {`\nPage IDs: `}
-                {searchData.page.map((p: any) => p?._id).join(', ')}
-                {debugInfo ? `\nMaterialization: ${JSON.stringify(debugInfo)}` : ''}
-              </div>
+                </div>
             </>
           )}
         </div>
