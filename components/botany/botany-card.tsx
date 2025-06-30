@@ -17,11 +17,13 @@ interface PlantCardProps {
 }
 
 export function BotanyCard({ plant }: PlantCardProps) {
-  const [imageSrc, setImageSrc] = useState(
-    plant.img.length === 0
-      ? "/cal_academy.png"
-      : extractImageUrl(plant.img, "500"),
-  );
+  const [imageSrc, setImageSrc] = useState(() => {
+    if (plant.img.length === 0) {
+      return "/cal_academy.png";
+    }
+    const extractedUrl = extractImageUrl(plant.img, "500");
+    return extractedUrl || "/cal_academy.png";
+  });
 
   const renderImage = () => {
     return (

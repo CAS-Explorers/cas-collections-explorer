@@ -124,6 +124,10 @@ export default function Botany() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // New filter checkboxes
+  const [hasValidImage, setHasValidImage] = useState(false);
+  const [hasValidGeoCoords, setHasValidGeoCoords] = useState(false);
+
   const RESULTS_PER_PAGE = 30;
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -162,7 +166,8 @@ export default function Botany() {
   };
 
   const searchData = useQuery(api.botany.searchPlants, hasSearched ? {
-    rules: searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+    rules: [
+      ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
         if (rule.numericFilter) {
           return {
             field: rule.index,
@@ -185,36 +190,47 @@ export default function Botany() {
           operator: "=",
           value: rule.value
         };
-      }),
+      })),
+      // Add image filter if checked
+      ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
+      // Add geocoordinates filter if checked
+      ...(hasValidGeoCoords ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : [])
+    ],
     sort,
     pagination: { pageNumber: currentPage, pageSize: RESULTS_PER_PAGE },
   } : "skip");
 
   const totalData = useQuery(api.botany.getTotal, hasSearched ? {
-    rules: searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
-      if (rule.numericFilter) {
+    rules: [
+      ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+        if (rule.numericFilter) {
+          return {
+            field: rule.index,
+            operator: rule.numericFilter.type,
+            value: Number(rule.numericFilter.value),
+            ...(rule.numericFilter.secondValue !== undefined && {
+              secondValue: Number(rule.numericFilter.secondValue)
+            })
+          };
+        }
+        if (rule.textFilter) {
+          return {
+            field: rule.index,
+            operator: rule.textFilter.type,
+            value: rule.textFilter.value,
+          };
+        }
         return {
           field: rule.index,
-          operator: rule.numericFilter.type,
-          value: Number(rule.numericFilter.value),
-          ...(rule.numericFilter.secondValue !== undefined && {
-            secondValue: Number(rule.numericFilter.secondValue)
-          })
+          operator: "=",
+          value: rule.value
         };
-      }
-      if (rule.textFilter) {
-        return {
-          field: rule.index,
-          operator: rule.textFilter.type,
-          value: rule.textFilter.value,
-        };
-      }
-      return {
-      field: rule.index,
-        operator: "=",
-        value: rule.value
-      };
-    }),
+      })),
+      // Add image filter if checked
+      ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
+      // Add geocoordinates filter if checked
+      ...(hasValidGeoCoords ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : [])
+    ],
   } : "skip");
 
   const totalResults = totalData?.total ?? 0;
@@ -341,34 +357,40 @@ export default function Botany() {
   useEffect(() => {
     if (hasSearched) {
       startMaterializing({
-        rules: searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
-          if (rule.numericFilter) {
+        rules: [
+          ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+            if (rule.numericFilter) {
+              return {
+                field: rule.index,
+                operator: rule.numericFilter.type,
+                value: Number(rule.numericFilter.value),
+                ...(rule.numericFilter.secondValue !== undefined && {
+                  secondValue: Number(rule.numericFilter.secondValue)
+                })
+              };
+            }
+            if (rule.textFilter) {
+              return {
+                field: rule.index,
+                operator: rule.textFilter.type,
+                value: rule.textFilter.value,
+              };
+            }
             return {
               field: rule.index,
-              operator: rule.numericFilter.type,
-              value: Number(rule.numericFilter.value),
-              ...(rule.numericFilter.secondValue !== undefined && {
-                secondValue: Number(rule.numericFilter.secondValue)
-              })
+              operator: "=",
+              value: rule.value
             };
-          }
-          if (rule.textFilter) {
-            return {
-              field: rule.index,
-              operator: rule.textFilter.type,
-              value: rule.textFilter.value,
-            };
-          }
-          return {
-            field: rule.index,
-            operator: "=",
-            value: rule.value
-          };
-        }),
+          })),
+          // Add image filter if checked
+          ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
+          // Add geocoordinates filter if checked
+          ...(hasValidGeoCoords ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : [])
+        ],
         sort,
       });
     }
-  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort)]);
+  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort), hasValidImage, hasValidGeoCoords]);
 
   const render = () => {
     return (
@@ -469,6 +491,42 @@ export default function Botany() {
                 "Search"
               )}
             </Button>
+          </div>
+          
+          {/* Filter Checkboxes */}
+          <div className="flex items-center gap-6 justify-center pt-4 border-t border-gray-200">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasValidImage}
+                onChange={(e) => {
+                  setHasValidImage(e.target.checked);
+                  setHasSearched(false);
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Has Valid Image</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Only show plants with actual images (excludes fallback images)
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasValidGeoCoords}
+                onChange={(e) => {
+                  setHasValidGeoCoords(e.target.checked);
+                  setHasSearched(false);
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Has Geo Coordinates</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Only show plants with valid latitude and longitude coordinates
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
           </div>
         </div>
       );
@@ -694,6 +752,43 @@ export default function Botany() {
             >
               + Add Search Rule
             </Button>
+            
+            {/* Filter Checkboxes for Advanced Search */}
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+                <input
+                  type="checkbox"
+                  checked={hasValidImage}
+                  onChange={(e) => {
+                    setHasValidImage(e.target.checked);
+                    setHasSearched(false);
+                  }}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span>Has Valid Image</span>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Only show plants with actual images (excludes fallback images)
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+                <input
+                  type="checkbox"
+                  checked={hasValidGeoCoords}
+                  onChange={(e) => {
+                    setHasValidGeoCoords(e.target.checked);
+                    setHasSearched(false);
+                  }}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span>Has Geo Coordinates</span>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Only show plants with valid latitude and longitude coordinates
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </label>
+            </div>
+            
             <Button 
               onClick={handleSearch}
               disabled={isLoading}
@@ -795,108 +890,117 @@ export default function Botany() {
                   for "{basicSearchQuery}" ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
                 </span>
               )}
+              {(hasValidImage || hasValidGeoCoords) && (
+                <span className="text-sm text-blue-600 ml-2">
+                  {hasValidImage && hasValidGeoCoords ? " (with image & coordinates filter)" :
+                   hasValidImage ? " (with image filter)" :
+                   " (with coordinates filter)"}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="sort-by" className="text-sm font-medium text-gray-600">Sort by:</label>
-              <select
-                id="sort-by"
-                value={sort.field === "" || sort.field === "-" ? "-asc" : `${sort.field}-${sort.direction}`}
-                onChange={(e) => {
-                  const [field, direction] = e.target.value.split('-');
-                  setIsLoading(true);
-                  setSort({ 
-                    field: field === "-" ? "" : field, 
-                    direction: direction as 'asc' | 'desc' 
-                  });
-                  // Reset pagination to first page when sort changes
-                  setCurrentPage(1);
-                  // Only show brief loading for sorting, don't artificially delay
-                  setTimeout(() => setIsLoading(false), 200);
-                }}
-                className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
-              >
-                <option value="-asc">Unsorted</option>
-                <option value="scientificName-asc">Scientific Name (A-Z)</option>
-                <option value="scientificName-desc">Scientific Name (Z-A)</option>
-                <option value="family-asc">Family (A-Z)</option>
-                <option value="family-desc">Family (Z-A)</option>
-                <option value="order-asc">Order (A-Z)</option>
-                <option value="order-desc">Order (Z-A)</option>
-                <option value="class-asc">Class (A-Z)</option>
-                <option value="class-desc">Class (Z-A)</option>
-                <option value="genus-asc">Genus (A-Z)</option>
-                <option value="genus-desc">Genus (Z-A)</option>
-                <option value="species-asc">Species (A-Z)</option>
-                <option value="species-desc">Species (Z-A)</option>
-                <option value="country-asc">Country (A-Z)</option>
-                <option value="country-desc">Country (Z-A)</option>
-                <option value="state-asc">State (A-Z)</option>
-                <option value="state-desc">State (Z-A)</option>
-                <option value="county-asc">County (A-Z)</option>
-                <option value="county-desc">County (Z-A)</option>
-                <option value="barCode-asc">Barcode (Asc)</option>
-                <option value="barCode-desc">Barcode (Desc)</option>
-                <option value="accessionNumber-asc">Accession # (Asc)</option>
-                <option value="accessionNumber-desc">Accession # (Desc)</option>
-                <option value="longitude1-asc">Longitude (Asc)</option>
-                <option value="longitude1-desc">Longitude (Desc)</option>
-                <option value="latitude1-asc">Latitude (Asc)</option>
-                <option value="latitude1-desc">Latitude (Desc)</option>
-                <option value="minElevation-asc">Min Elevation (Asc)</option>
-                <option value="minElevation-desc">Min Elevation (Desc)</option>
-                <option value="maxElevation-asc">Max Elevation (Asc)</option>
-                <option value="maxElevation-desc">Max Elevation (Desc)</option>
-                <option value="startDateMonth-asc">Start Date Month (Asc)</option>
-                <option value="startDateMonth-desc">Start Date Month (Desc)</option>
-                <option value="startDateDay-asc">Start Date Day (Asc)</option>
-                <option value="startDateDay-desc">Start Date Day (Desc)</option>
-                <option value="startDateYear-asc">Start Date Year (Asc)</option>
-                <option value="startDateYear-desc">Start Date Year (Desc)</option>
-                <option value="endDateMonth-asc">End Date Month (Asc)</option>
-                <option value="endDateMonth-desc">End Date Month (Desc)</option>
-                <option value="endDateDay-asc">End Date Day (Asc)</option>
-                <option value="endDateDay-desc">End Date Day (Desc)</option>
-                <option value="endDateYear-asc">End Date Year (Asc)</option>
-                <option value="endDateYear-desc">End Date Year (Desc)</option>
-                <option value="collectors-asc">Collectors (A-Z)</option>
-                <option value="collectors-desc">Collectors (Z-A)</option>
-                <option value="continent-asc">Continent (A-Z)</option>
-                <option value="continent-desc">Continent (Z-A)</option>
-                <option value="determinedDate-asc">Determined Date (A-Z)</option>
-                <option value="determinedDate-desc">Determined Date (Z-A)</option>
-                <option value="determiner-asc">Determiner (A-Z)</option>
-                <option value="determiner-desc">Determiner (Z-A)</option>
-                <option value="habitat-asc">Habitat (A-Z)</option>
-                <option value="habitat-desc">Habitat (Z-A)</option>
-                <option value="herbarium-asc">Herbarium (A-Z)</option>
-                <option value="herbarium-desc">Herbarium (Z-A)</option>
-                <option value="localityName-asc">Locality (A-Z)</option>
-                <option value="localityName-desc">Locality (Z-A)</option>
-                <option value="phenology-asc">Phenology (A-Z)</option>
-                <option value="phenology-desc">Phenology (Z-A)</option>
-                <option value="preparations-asc">Preparations (A-Z)</option>
-                <option value="preparations-desc">Preparations (Z-A)</option>
-                <option value="town-asc">Town (A-Z)</option>
-                <option value="town-desc">Town (Z-A)</option>
-                <option value="typeStatusName-asc">Type Status (A-Z)</option>
-                <option value="typeStatusName-desc">Type Status (Z-A)</option>
-                <option value="verbatimDate-asc">Verbatim Date (A-Z)</option>
-                <option value="verbatimDate-desc">Verbatim Date (Z-A)</option>
-                <option value="timestampModified-asc">Last Modified (A-Z)</option>
-                <option value="timestampModified-desc">Last Modified (Z-A)</option>
-                <option value="originalElevationUnit-asc">Elevation Unit (A-Z)</option>
-                <option value="originalElevationUnit-desc">Elevation Unit (Z-A)</option>
-                <option value="collectorNumber-asc">Collector Number (A-Z)</option>
-                <option value="collectorNumber-desc">Collector Number (Z-A)</option>
-                <option value="localityContinued-asc">Locality Continued (A-Z)</option>
-                <option value="localityContinued-desc">Locality Continued (Z-A)</option>
-                <option value="redactLocalityCo-asc">Redact Locality Co (A-Z)</option>
-                <option value="redactLocalityCo-desc">Redact Locality Co (Z-A)</option>
-                <option value="redactLocalityTaxon-asc">Redact Locality Taxon (A-Z)</option>
-                <option value="redactLocalityTaxon-desc">Redact Locality Taxon (Z-A)</option>
-                <option value="redactLocalityAcceptedTaxon-asc">Redact Locality Accepted Taxon (A-Z)</option>
-                <option value="redactLocalityAcceptedTaxon-desc">Redact Locality Accepted Taxon (Z-A)</option>
-              </select>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label htmlFor="sort-by" className="text-sm font-medium text-gray-600">Sort by:</label>
+                <select
+                  id="sort-by"
+                  value={sort.field === "" || sort.field === "-" ? "-asc" : `${sort.field}-${sort.direction}`}
+                  onChange={(e) => {
+                    const [field, direction] = e.target.value.split('-');
+                    setIsLoading(true);
+                    setSort({ 
+                      field: field === "-" ? "" : field, 
+                      direction: direction as 'asc' | 'desc' 
+                    });
+                    // Reset pagination to first page when sort changes
+                    setCurrentPage(1);
+                    // Only show brief loading for sorting, don't artificially delay
+                    setTimeout(() => setIsLoading(false), 200);
+                  }}
+                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                >
+                  <option value="-asc">Unsorted</option>
+                  <option value="scientificName-asc">Scientific Name (A-Z)</option>
+                  <option value="scientificName-desc">Scientific Name (Z-A)</option>
+                  <option value="family-asc">Family (A-Z)</option>
+                  <option value="family-desc">Family (Z-A)</option>
+                  <option value="order-asc">Order (A-Z)</option>
+                  <option value="order-desc">Order (Z-A)</option>
+                  <option value="class-asc">Class (A-Z)</option>
+                  <option value="class-desc">Class (Z-A)</option>
+                  <option value="genus-asc">Genus (A-Z)</option>
+                  <option value="genus-desc">Genus (Z-A)</option>
+                  <option value="species-asc">Species (A-Z)</option>
+                  <option value="species-desc">Species (Z-A)</option>
+                  <option value="country-asc">Country (A-Z)</option>
+                  <option value="country-desc">Country (Z-A)</option>
+                  <option value="state-asc">State (A-Z)</option>
+                  <option value="state-desc">State (Z-A)</option>
+                  <option value="county-asc">County (A-Z)</option>
+                  <option value="county-desc">County (Z-A)</option>
+                  <option value="barCode-asc">Barcode (Asc)</option>
+                  <option value="barCode-desc">Barcode (Desc)</option>
+                  <option value="accessionNumber-asc">Accession # (Asc)</option>
+                  <option value="accessionNumber-desc">Accession # (Desc)</option>
+                  <option value="longitude1-asc">Longitude (Asc)</option>
+                  <option value="longitude1-desc">Longitude (Desc)</option>
+                  <option value="latitude1-asc">Latitude (Asc)</option>
+                  <option value="latitude1-desc">Latitude (Desc)</option>
+                  <option value="minElevation-asc">Min Elevation (Asc)</option>
+                  <option value="minElevation-desc">Min Elevation (Desc)</option>
+                  <option value="maxElevation-asc">Max Elevation (Asc)</option>
+                  <option value="maxElevation-desc">Max Elevation (Desc)</option>
+                  <option value="startDateMonth-asc">Start Date Month (Asc)</option>
+                  <option value="startDateMonth-desc">Start Date Month (Desc)</option>
+                  <option value="startDateDay-asc">Start Date Day (Asc)</option>
+                  <option value="startDateDay-desc">Start Date Day (Desc)</option>
+                  <option value="startDateYear-asc">Start Date Year (Asc)</option>
+                  <option value="startDateYear-desc">Start Date Year (Desc)</option>
+                  <option value="endDateMonth-asc">End Date Month (Asc)</option>
+                  <option value="endDateMonth-desc">End Date Month (Desc)</option>
+                  <option value="endDateDay-asc">End Date Day (Asc)</option>
+                  <option value="endDateDay-desc">End Date Day (Desc)</option>
+                  <option value="endDateYear-asc">End Date Year (Asc)</option>
+                  <option value="endDateYear-desc">End Date Year (Desc)</option>
+                  <option value="collectors-asc">Collectors (A-Z)</option>
+                  <option value="collectors-desc">Collectors (Z-A)</option>
+                  <option value="continent-asc">Continent (A-Z)</option>
+                  <option value="continent-desc">Continent (Z-A)</option>
+                  <option value="determinedDate-asc">Determined Date (A-Z)</option>
+                  <option value="determinedDate-desc">Determined Date (Z-A)</option>
+                  <option value="determiner-asc">Determiner (A-Z)</option>
+                  <option value="determiner-desc">Determiner (Z-A)</option>
+                  <option value="habitat-asc">Habitat (A-Z)</option>
+                  <option value="habitat-desc">Habitat (Z-A)</option>
+                  <option value="herbarium-asc">Herbarium (A-Z)</option>
+                  <option value="herbarium-desc">Herbarium (Z-A)</option>
+                  <option value="localityName-asc">Locality (A-Z)</option>
+                  <option value="localityName-desc">Locality (Z-A)</option>
+                  <option value="phenology-asc">Phenology (A-Z)</option>
+                  <option value="phenology-desc">Phenology (Z-A)</option>
+                  <option value="preparations-asc">Preparations (A-Z)</option>
+                  <option value="preparations-desc">Preparations (Z-A)</option>
+                  <option value="town-asc">Town (A-Z)</option>
+                  <option value="town-desc">Town (Z-A)</option>
+                  <option value="typeStatusName-asc">Type Status (A-Z)</option>
+                  <option value="typeStatusName-desc">Type Status (Z-A)</option>
+                  <option value="verbatimDate-asc">Verbatim Date (A-Z)</option>
+                  <option value="verbatimDate-desc">Verbatim Date (Z-A)</option>
+                  <option value="timestampModified-asc">Last Modified (A-Z)</option>
+                  <option value="timestampModified-desc">Last Modified (Z-A)</option>
+                  <option value="originalElevationUnit-asc">Elevation Unit (A-Z)</option>
+                  <option value="originalElevationUnit-desc">Elevation Unit (Z-A)</option>
+                  <option value="collectorNumber-asc">Collector Number (A-Z)</option>
+                  <option value="collectorNumber-desc">Collector Number (Z-A)</option>
+                  <option value="localityContinued-asc">Locality Continued (A-Z)</option>
+                  <option value="localityContinued-desc">Locality Continued (Z-A)</option>
+                  <option value="redactLocalityCo-asc">Redact Locality Co (A-Z)</option>
+                  <option value="redactLocalityCo-desc">Redact Locality Co (Z-A)</option>
+                  <option value="redactLocalityTaxon-asc">Redact Locality Taxon (A-Z)</option>
+                  <option value="redactLocalityTaxon-desc">Redact Locality Taxon (Z-A)</option>
+                  <option value="redactLocalityAcceptedTaxon-asc">Redact Locality Accepted Taxon (A-Z)</option>
+                  <option value="redactLocalityAcceptedTaxon-desc">Redact Locality Accepted Taxon (Z-A)</option>
+                </select>
+              </div>
             </div>
           </div>
         )}

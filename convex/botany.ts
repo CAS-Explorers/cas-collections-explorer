@@ -296,6 +296,21 @@ function applyAllFilters(documents: Doc<"botany">[], rules: SearchRule[]): Doc<"
               return fieldVal.includes(term);
             })
           );
+        case "has_valid_image":
+          // Use the hasWorkingImage boolean field for fast filtering
+          return !!doc.hasWorkingImage;
+        case "has_valid_coords":
+          // Check if the plant has valid latitude and longitude coordinates
+          const lat = doc.latitude1;
+          const lng = doc.longitude1;
+          
+          if (!lat || !lng) return false;
+          
+          // Check if they are valid numbers and not empty strings
+          const latNum = parseFloat(String(lat));
+          const lngNum = parseFloat(String(lng));
+          
+          return !isNaN(latNum) && !isNaN(lngNum) && latNum !== 0 && lngNum !== 0;
         default:
           return true;
       }
@@ -577,3 +592,56 @@ async function cleanupOldChunks(ctx: any, searchId: string) {
     await ctx.db.delete(chunk._id);
   }
 }
+
+// List plants in batches for validation script
+export const listPlants = query({
+  args: { after: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let q;
+    if (args.after) {
+      q = ctx.db.query("botany").withIndex("by_botanyId", q2 => q2.gt("botanyId", args.after));
+    } else {
+      q = ctx.db.query("botany").withIndex("by_botanyId");
+    }
+    // Fetch up to 100 at a time
+    return await q.take(100);
+  },
+});
+
+// Mutation to update hasWorkingImage
+export const updateHasWorkingImage = mutation({
+  args: {
+    id: v.id("botany"),
+    hasWorkingImage: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { hasWorkingImage: args.hasWorkingImage });
+  },
+});
+
+// Mutation to backfill botanyId in batches
+export const backfillBotanyId = mutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    after: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize ?? 100;
+    let q;
+    if (args.after) {
+      q = ctx.db.query("botany").withIndex("by_botanyId", q2 => q2.gt("botanyId", args.after));
+    } else {
+      q = ctx.db.query("botany").withIndex("by_botanyId");
+    }
+    const batch = await q.take(batchSize);
+    for (const plant of batch) {
+      if (!plant.botanyId) {
+        await ctx.db.patch(plant._id, { botanyId: plant._id });
+      }
+    }
+    return {
+      lastId: batch.length > 0 ? batch[batch.length - 1].botanyId : null,
+      count: batch.length,
+    };
+  },
+});

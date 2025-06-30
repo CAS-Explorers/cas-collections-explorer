@@ -50,6 +50,8 @@ export const Plant = {
   verbatimDate: v.union(v.float64(), v.string()),
   redactLocalityTaxon: v.string(),
   redactLocalityAcceptedTaxon: v.string(),
+  hasWorkingImage: v.optional(v.boolean()),
+  botanyId: v.optional(v.string()),
 };
 
 export default defineSchema({
@@ -58,6 +60,7 @@ export default defineSchema({
     value: v.number(),
   }),
   botany: defineTable(Plant)
+    .index("by_botanyId", ["botanyId"])
     .index("by_longitude", ["longitude1"])
     .index("by_latitude", ["latitude1"])
     .index("by_minElevation", ["minElevation"])
