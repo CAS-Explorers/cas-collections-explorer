@@ -250,11 +250,10 @@ function applyAllFilters(documents: Doc<"botany">[], rules: SearchRule[]): Doc<"
           return Number(fieldValue) <= Number(ruleValue);
         case "between":
           return Number(fieldValue) >= Number(rule.secondValue) && Number(fieldValue) <= Number(rule.secondValue);
-        case "basic_exact":
-          // For basic exact match: all terms must be found in the same record
+        case "basic_exact": {
+          // For basic exact match: all terms must be found in any of the search fields (case-insensitive)
           const terms = String(ruleValue).split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
           if (terms.length === 0) return true;
-          
           const searchFields = [
             "scientificName", "family", "genus", "species", "country", "state", 
             "county", "collectors", "herbarium", "habitat", "localityName", "town",
@@ -265,14 +264,14 @@ function applyAllFilters(documents: Doc<"botany">[], rules: SearchRule[]): Doc<"
             "longitude1", "latitude1", "minElevation", "maxElevation", "barCode", "accessionNumber",
             "startDateMonth", "startDateDay", "startDateYear", "endDateMonth", "endDateDay", "endDateYear"
           ];
-          
-          // Check if all terms are found in any of the search fields
-          return terms.every(term => 
+          // Match if every term is found in any field (case-insensitive)
+          return terms.every(term =>
             searchFields.some(field => {
               const fieldVal = String(doc[field as keyof Doc<"botany">] || "").toLowerCase();
               return fieldVal.includes(term);
             })
           );
+        }
         case "basic_any":
           // For basic match any: at least one term must be found in the same record
           const anyTerms = String(ruleValue).split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
@@ -296,9 +295,21 @@ function applyAllFilters(documents: Doc<"botany">[], rules: SearchRule[]): Doc<"
               return fieldVal.includes(term);
             })
           );
-        case "has_valid_image":
-          // Use the hasWorkingImage boolean field for fast filtering
-          return !!doc.hasWorkingImage;
+        case "has_valid_image": {
+          const img = doc.img;
+          if (!img || img.length === 0) {
+            if (doc.country && doc.country.toLowerCase() === "brazil") {
+              console.log("DEBUG: Brazil record with empty img:", doc);
+            }
+            return false;
+          }
+          const regex = /[0-9a-fA-F-]{8,}\.(jpg|jpeg)/i;
+          const result = regex.test(img);
+          if (doc.country && doc.country.toLowerCase() === "brazil") {
+            console.log("DEBUG: Brazil img:", img, "Regex result:", result);
+          }
+          return result;
+        }
         case "has_valid_coords":
           // Check if the plant has valid latitude and longitude coordinates
           const lat = doc.latitude1;
@@ -605,17 +616,6 @@ export const listPlants = query({
     }
     // Fetch up to 100 at a time
     return await q.take(100);
-  },
-});
-
-// Mutation to update hasWorkingImage
-export const updateHasWorkingImage = mutation({
-  args: {
-    id: v.id("botany"),
-    hasWorkingImage: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { hasWorkingImage: args.hasWorkingImage });
   },
 });
 

@@ -124,6 +124,12 @@ export function BotanyCard({ plant }: PlantCardProps) {
               Town: {plant.town}
             </span>
           </div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span className="line-clamp-1">
+              Lat: {plant.latitude1?.toString() || 'N/A'} | Lng: {plant.longitude1?.toString() || 'N/A'}
+            </span>
+          </div>
           {plant.originalElevationUnit && (
             <div className="flex items-center text-sm text-muted-foreground">
               <MapPin className="h-4 w-4 mr-1" />

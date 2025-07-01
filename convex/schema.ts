@@ -50,8 +50,8 @@ export const Plant = {
   verbatimDate: v.union(v.float64(), v.string()),
   redactLocalityTaxon: v.string(),
   redactLocalityAcceptedTaxon: v.string(),
-  hasWorkingImage: v.optional(v.boolean()),
   botanyId: v.optional(v.string()),
+  // hasWorkingImage: v.optional(v.boolean()), // Removed after migration
 };
 
 export default defineSchema({

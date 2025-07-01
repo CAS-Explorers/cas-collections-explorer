@@ -131,34 +131,20 @@ export default function Botany() {
   const RESULTS_PER_PAGE = 30;
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Add effect to manage loading state when search criteria change
-  useEffect(() => {
-    // Set loading when search rules change
-    setIsLoading(true);
-    // Clear loading after a short delay to allow new query to start
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, [JSON.stringify(searchRules), sort.field, sort.direction]);
-
-  // Convert basic search to advanced search rules
+  // Move getBasicSearchRules to the top of the component
   const getBasicSearchRules = () => {
     if (!basicSearchQuery.trim()) return [];
-    
-    const terms = basicSearchQuery.trim().split(',').map(t => t.trim()).filter(term => term.length > 0);
+    const terms = basicSearchQuery.trim().split(',').map((t: string) => t.trim()).filter((term: string) => term.length > 0);
     if (terms.length === 0) return [];
-
-    // Use the new backend operators for basic search
     if (basicSearchType === 'exact') {
-      // All terms must be found in the same record
       return [{
-        field: "scientificName", // Field doesn't matter for basic search operators
+        field: "all",
         operator: "basic_exact",
         value: basicSearchQuery.trim()
       }];
     } else {
-      // At least one term must be found in the same record
       return [{
-        field: "scientificName", // Field doesn't matter for basic search operators
+        field: "scientificName",
         operator: "basic_any",
         value: basicSearchQuery.trim()
       }];
@@ -506,10 +492,10 @@ export default function Botany() {
                 className="rounded border-gray-300 text-green-600 focus:ring-green-500"
               />
               <span>Has Valid Image</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                Only show plants with actual images (excludes fallback images)
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-              </div>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Only show plants with image attachments (UUID-based images)
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
             </label>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
               <input
@@ -767,7 +753,7 @@ export default function Botany() {
                 />
                 <span>Has Valid Image</span>
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Only show plants with actual images (excludes fallback images)
+                  Only show plants with image attachments (UUID-based images)
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                 </div>
               </label>
