@@ -232,24 +232,90 @@ function applyAllFilters(documents: Doc<"botany">[], rules: SearchRule[]): Doc<"
       const ruleValue = rule.value;
       
       switch (rule.operator) {
-        case "=":
+        case "=": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (typeof fieldValue === 'number' || typeof ruleValue === 'number') {
+            if (isNaN(num) || isNaN(ruleNum)) return false;
+            return num === ruleNum;
+          }
           return fieldValue === ruleValue;
+        }
+        case "!=": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (typeof fieldValue === 'number' || typeof ruleValue === 'number') {
+            if (isNaN(num) || isNaN(ruleNum)) return false;
+            return num !== ruleNum;
+          }
+          return String(fieldValue).toLowerCase() !== String(ruleValue).toLowerCase();
+        }
+        case ">": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (isNaN(num) || isNaN(ruleNum)) return false;
+          return num > ruleNum;
+        }
+        case ">=": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (isNaN(num) || isNaN(ruleNum)) return false;
+          return num >= ruleNum;
+        }
+        case "<": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (isNaN(num) || isNaN(ruleNum)) return false;
+          return num < ruleNum;
+        }
+        case "<=": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (isNaN(num) || isNaN(ruleNum)) return false;
+          return num <= ruleNum;
+        }
+        case "before": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (isNaN(num) || isNaN(ruleNum)) return false;
+          return num < ruleNum;
+        }
+        case "after": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const ruleNum = Number(ruleValue);
+          if (isNaN(num) || isNaN(ruleNum)) return false;
+          return num > ruleNum;
+        }
+        case "between": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const min = Number(ruleValue);
+          const max = Number(rule.secondValue);
+          if (isNaN(num) || isNaN(min) || isNaN(max)) return false;
+          return num >= min && num <= max;
+        }
+        case "not_between": {
+          if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
+          const num = Number(fieldValue);
+          const min = Number(rule.value);
+          const max = Number(rule.secondValue);
+          if (isNaN(num) || isNaN(min) || isNaN(max)) return false;
+          return num < min || num > max;
+        }
         case "contains":
           return String(fieldValue).toLowerCase().includes(String(ruleValue).toLowerCase());
         case "starts_with":
           return String(fieldValue).toLowerCase().startsWith(String(ruleValue).toLowerCase());
         case "ends_with":
           return String(fieldValue).toLowerCase().endsWith(String(ruleValue).toLowerCase());
-        case ">":
-          return Number(fieldValue) > Number(ruleValue);
-        case ">=":
-          return Number(fieldValue) >= Number(ruleValue);
-        case "<":
-          return Number(fieldValue) < Number(ruleValue);
-        case "<=":
-          return Number(fieldValue) <= Number(ruleValue);
-        case "between":
-          return Number(fieldValue) >= Number(rule.secondValue) && Number(fieldValue) <= Number(rule.secondValue);
         case "basic_exact": {
           // For basic exact match: all terms must be found in any of the search fields (case-insensitive)
           const terms = String(ruleValue).split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
@@ -644,4 +710,13 @@ export const backfillBotanyId = mutation({
       count: batch.length,
     };
   },
+});
+
+export const getBotanyDocumentCount = query({
+  args: {},
+  handler: async (ctx) => {
+    // Count all documents in the botany table
+    const docs = await ctx.db.query("botany").collect();
+    return { count: docs.length };
+  }
 });

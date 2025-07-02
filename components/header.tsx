@@ -22,10 +22,10 @@ export function Header() {
           variant="ghost"
           size="sm"
           className="gap-2"
-          onClick={handleBack}
+          onClick={() => router.back()}
+          aria-label="Back"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Collection
         </Button>
       </div>
     </header>
