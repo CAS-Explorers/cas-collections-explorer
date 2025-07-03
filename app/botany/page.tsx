@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,9 @@ import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useQuery, useMutation } from "convex/react";
 import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
+import { GoogleMap, Marker, useJsApiLoader, InfoWindow, OverlayView, DrawingManager, Rectangle } from '@react-google-maps/api';
+import { extractImageUrl } from '@/lib/utils';
+import { useQuery as useConvexQuery } from "convex/react";
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -107,6 +110,242 @@ const numericFields = [
   "barCode", "accessionNumber"
 ];
 
+// Add this at the top of the file, outside any component
+const GOOGLE_MAP_LIBRARIES = ['drawing'] as any;
+
+// Update MapView props
+type MapViewProps = {
+  plants: any[],
+  selectArea: boolean,
+  areaBounds: google.maps.LatLngBoundsLiteral | null,
+  setAreaBounds: (b: google.maps.LatLngBoundsLiteral | null) => void,
+  handleRectangleComplete: (rectangle: google.maps.Rectangle) => void,
+  rectangleRef: React.MutableRefObject<google.maps.Rectangle | null>,
+  rectangleActive: boolean,
+  setRectangleActive: React.Dispatch<React.SetStateAction<boolean>>,
+  drawingMode: google.maps.drawing.OverlayType | null,
+  setDrawingMode: React.Dispatch<React.SetStateAction<google.maps.drawing.OverlayType | null>>,
+  setHasSearched: React.Dispatch<React.SetStateAction<boolean>>,
+};
+
+// MapView component for displaying pins
+function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangleComplete, rectangleRef, rectangleActive, setRectangleActive, drawingMode, setDrawingMode, setHasSearched }: MapViewProps) {
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries: GOOGLE_MAP_LIBRARIES,
+  });
+  const [showDrawButton, setShowDrawButton] = useState(false);
+  const [mapInteractive, setMapInteractive] = useState(true);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 20, lng: 0 });
+  const [mapZoom, setMapZoom] = useState(3);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markers = plants.filter(p =>
+    typeof p.latitude1 === 'number' && typeof p.longitude1 === 'number' &&
+    !isNaN(p.latitude1) && !isNaN(p.longitude1)
+  );
+  const [selectedPlant, setSelectedPlant] = useState<any | null>(null);
+  const PLACEHOLDER_IMAGE = "/cal_academy.png";
+  const [forceHideRectangle, setForceHideRectangle] = useState(false);
+  const rectanglesRef = useRef<google.maps.Rectangle[]>([]);
+  const [drawnRectangle, setDrawnRectangle] = useState<google.maps.Rectangle | null>(null);
+  const allDrawnRectangles = useRef<google.maps.Rectangle[]>([]);
+  const [drawAreaActive, setDrawAreaActive] = useState(false);
+
+  // Show DrawingManager if selectArea is true and no rectangle exists
+  useEffect(() => {
+    if (!selectArea || areaBounds) {
+      setDrawingMode(null);
+    }
+  }, [selectArea, areaBounds]);
+
+  // Remove rectangle when areaBounds is cleared
+  useEffect(() => {
+    if (!areaBounds && rectangleRef.current) {
+      rectangleRef.current.setMap(null);
+      rectangleRef.current = null;
+      setRectangleActive(false);
+    }
+  }, [areaBounds]);
+
+  // Remove rectangle on unmount
+  useEffect(() => {
+    return () => {
+      if (rectangleRef.current) {
+        rectangleRef.current.setMap(null);
+        rectangleRef.current = null;
+      }
+      allDrawnRectangles.current.forEach(rect => {
+        if (rect) rect.setMap(null);
+      });
+      allDrawnRectangles.current = [];
+    };
+  }, []);
+
+  // Handler for rectanglecomplete
+  // This function is now passed as a prop to MapView
+
+  // Remove Area button handler - moved inside MapView component
+  const handleRemoveArea = () => {
+    allDrawnRectangles.current.forEach(rect => {
+      rect.setEditable(false);
+      rect.setDraggable(false);
+      rect.setMap(null);
+    });
+    allDrawnRectangles.current = [];
+    setDrawnRectangle(null);
+    rectangleRef.current = null;
+    setRectangleActive(false);
+    setAreaBounds(null);
+    setHasSearched(false);
+    setDrawingMode(null);
+    setForceHideRectangle(true);
+  };
+
+  // Add effect to reset forceHideRectangle
+  useEffect(() => {
+    if (forceHideRectangle) {
+      setTimeout(() => setForceHideRectangle(false), 0);
+    }
+  }, [forceHideRectangle]);
+
+  useEffect(() => {
+    if (areaBounds) setDrawAreaActive(false);
+  }, [areaBounds]);
+
+  if (!isLoaded) return <div className="w-full h-[500px] flex items-center justify-center">Loading map...</div>;
+  return (
+    <div className={`w-full h-[500px] my-8 rounded-lg overflow-hidden border relative ${drawAreaActive ? 'ring-4 ring-green-400' : ''}`}>
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        center={mapCenter}
+        zoom={mapZoom}
+        onLoad={map => { mapRef.current = map; }}
+        onIdle={() => {
+          if (mapRef.current) {
+            const c = mapRef.current.getCenter();
+            const z = mapRef.current.getZoom();
+            if (c) setMapCenter({ lat: c.lat(), lng: c.lng() });
+            if (z) setMapZoom(z);
+          }
+        }}
+        options={{
+          draggable: true,
+          scrollwheel: true,
+          disableDoubleClickZoom: false,
+          gestureHandling: 'auto',
+          zoomControl: true,
+        }}
+      >
+        {markers.map((plant, i) => (
+          <Marker
+            key={plant._id || i}
+            position={{ lat: plant.latitude1, lng: plant.longitude1 }}
+            title={plant.scientificName || ''}
+            onClick={() => setSelectedPlant(plant)}
+          />
+        ))}
+        {selectedPlant && (
+          <OverlayView
+            position={{ lat: selectedPlant.latitude1, lng: selectedPlant.longitude1 }}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+          >
+            <div className="w-64 bg-white rounded-lg shadow-xl border border-gray-200" style={{padding: 0, marginBottom: 16}}>
+              <div className="relative" style={{padding: 0, margin: 0}}>
+                <img
+                  src={extractImageUrl(selectedPlant.img, "500") || PLACEHOLDER_IMAGE}
+                  alt={selectedPlant.scientificName}
+                  className="object-cover"
+                  style={{ width: '100%', height: 'auto', aspectRatio: '4/3', display: 'block', borderRadius: '0.5rem 0.5rem 0 0', margin: 0, padding: 0 }}
+                />
+                <button
+                  onClick={() => setSelectedPlant(null)}
+                  className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded-full p-1 shadow-md border border-gray-300 z-10"
+                  aria-label="Close"
+                  style={{ lineHeight: 0 }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="font-semibold text-green-800 mb-1 mt-2 px-4">{selectedPlant.scientificName}</div>
+              <div className="text-xs text-gray-600 mb-2 px-4">{selectedPlant.family}</div>
+              <a
+                href={`/botany/${selectedPlant._id}`}
+                className="text-green-700 underline text-sm hover:text-green-900 px-4 pb-4 inline-block"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Details
+              </a>
+            </div>
+          </OverlayView>
+        )}
+        {/* DrawingManager for area selection */}
+        {selectArea && !areaBounds && (
+          <>
+            <button
+              onClick={() => {
+                setDrawingMode(window.google?.maps?.drawing?.OverlayType.RECTANGLE || 'rectangle');
+                setDrawAreaActive(true);
+              }}
+              className={`absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-700 text-white px-6 py-2 rounded shadow-lg z-20 hover:bg-green-800 ${drawAreaActive ? 'ring-4 ring-green-400' : ''}`}
+            >
+              Draw Area
+            </button>
+            <DrawingManager
+              drawingMode={drawingMode}
+              onRectangleComplete={rect => {
+                // Remove all previous rectangles (single-box mode)
+                allDrawnRectangles.current.forEach(r => r.setMap(null));
+                allDrawnRectangles.current = [rect];
+                setDrawnRectangle(rect);
+                rectangleRef.current = rect;
+                setRectangleActive(true);
+                setDrawingMode(null);
+                // Save bounds
+                const bounds = rect.getBounds();
+                if (!bounds) return;
+                const ne = bounds.getNorthEast();
+                const sw = bounds.getSouthWest();
+                setAreaBounds({
+                  north: ne.lat(),
+                  south: sw.lat(),
+                  east: ne.lng(),
+                  west: sw.lng(),
+                });
+                setHasSearched(true);
+              }}
+              options={{
+                drawingControl: false,
+                rectangleOptions: {
+                  draggable: true,
+                  editable: true,
+                  strokeColor: '#000',
+                  fillColor: '#000',
+                  fillOpacity: 0,
+                  strokeOpacity: 1.0,
+                  strokeWeight: 3,
+                },
+              }}
+            />
+          </>
+        )}
+        {/* (Do not render any <Rectangle /> React component) */}
+      </GoogleMap>
+      {/* Remove Area button */}
+      {selectArea && areaBounds && rectangleActive && (
+        <button
+          onClick={handleRemoveArea}
+          className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-20 hover:bg-red-700"
+        >
+          Remove Area
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Botany() {
   const searchParams = useSearchParams();
 
@@ -127,6 +366,14 @@ export default function Botany() {
   // New filter checkboxes
   const [hasValidImage, setHasValidImage] = useState(false);
   const [hasValidGeoCoords, setHasValidGeoCoords] = useState(false);
+  const [hasMapView, setHasMapView] = useState(false);
+  const [selectArea, setSelectArea] = useState(false);
+  const [areaBounds, setAreaBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
+
+  // In Botany component, add these refs and state:
+  const rectangleRef = useRef<google.maps.Rectangle | null>(null);
+  const [rectangleActive, setRectangleActive] = useState(false);
+  const [drawingMode, setDrawingMode] = useState<google.maps.drawing.OverlayType | null>(null);
 
   const RESULTS_PER_PAGE = 30;
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,7 +398,19 @@ export default function Botany() {
     }
   };
 
-  const searchData = useQuery(api.botany.searchPlants, hasSearched ? {
+  // Add area filter to search rules if area is selected
+  const latMin = areaBounds ? Math.min(areaBounds.south, areaBounds.north) : undefined;
+  const latMax = areaBounds ? Math.max(areaBounds.south, areaBounds.north) : undefined;
+  const lngMin = areaBounds ? Math.min(areaBounds.west, areaBounds.east) : undefined;
+  const lngMax = areaBounds ? Math.max(areaBounds.west, areaBounds.east) : undefined;
+
+  const areaFilterRule = (latMin !== undefined && latMax !== undefined && lngMin !== undefined && lngMax !== undefined) ? [
+    { field: "latitude1", operator: "between", value: latMin ?? 0, secondValue: latMax ?? 0 },
+    { field: "longitude1", operator: "between", value: lngMin ?? 0, secondValue: lngMax ?? 0 }
+  ] : [];
+
+
+  const searchData = useQuery(api.botany.searchPlants, hasSearched && (!selectArea || (selectArea && areaBounds)) ? {
     rules: [
       ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
         if (rule.numericFilter) {
@@ -177,14 +436,15 @@ export default function Botany() {
           value: rule.value
         };
       })),
-      // Add image filter if checked
       ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
-      // Add geocoordinates filter if checked
-      ...(hasValidGeoCoords ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : [])
+      ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
+      ...areaFilterRule
     ],
     sort,
     pagination: { pageNumber: currentPage, pageSize: RESULTS_PER_PAGE },
   } : "skip");
+
+
 
   const totalData = useQuery(api.botany.getTotal, hasSearched ? {
     rules: [
@@ -215,7 +475,8 @@ export default function Botany() {
       // Add image filter if checked
       ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
       // Add geocoordinates filter if checked
-      ...(hasValidGeoCoords ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : [])
+      ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
+      ...areaFilterRule
     ],
   } : "skip");
 
@@ -342,50 +603,74 @@ export default function Botany() {
 
   useEffect(() => {
     if (hasSearched) {
-      startMaterializing({
-        rules: [
-          ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
-            if (rule.numericFilter) {
-              return {
-                field: rule.index,
-                operator: rule.numericFilter.type,
-                value: Number(rule.numericFilter.value),
-                ...(rule.numericFilter.secondValue !== undefined && {
-                  secondValue: Number(rule.numericFilter.secondValue)
-                })
-              };
-            }
-            if (rule.textFilter) {
-              return {
-                field: rule.index,
-                operator: rule.textFilter.type,
-                value: rule.textFilter.value,
-              };
-            }
+      const rulesToSend = [
+        ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+          if (rule.numericFilter) {
             return {
               field: rule.index,
-              operator: "=",
-              value: rule.value
+              operator: rule.numericFilter.type,
+              value: Number(rule.numericFilter.value),
+              ...(rule.numericFilter.secondValue !== undefined && {
+                secondValue: Number(rule.numericFilter.secondValue)
+              })
             };
-          })),
-          // Add image filter if checked
-          ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
-          // Add geocoordinates filter if checked
-          ...(hasValidGeoCoords ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : [])
-        ],
+          }
+          if (rule.textFilter) {
+            return {
+              field: rule.index,
+              operator: rule.textFilter.type,
+              value: rule.textFilter.value,
+            };
+          }
+          return {
+            field: rule.index,
+            operator: "=",
+            value: rule.value
+          };
+        })),
+        ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
+        ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
+        ...areaFilterRule
+      ];
+
+      startMaterializing({
+        rules: rulesToSend,
         sort,
       });
     }
   }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort), hasValidImage, hasValidGeoCoords]);
 
+
+
+  // REMOVE the useEffect that triggers setHasSearched(true) on [areaBounds, selectArea]
+
   const render = () => {
     return (
-      <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {renderSearch()}
-          {renderSearchResults()}
+      <>
+
+        <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
+          <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {renderSearch()}
+            {(hasMapView || selectArea) && (
+              <MapView
+                plants={searchData?.page || []}
+                selectArea={selectArea}
+                areaBounds={areaBounds}
+                setAreaBounds={setAreaBounds}
+                handleRectangleComplete={handleRectangleComplete}
+                rectangleRef={rectangleRef}
+                rectangleActive={rectangleActive}
+                setRectangleActive={setRectangleActive}
+                drawingMode={drawingMode}
+                setDrawingMode={setDrawingMode}
+                setHasSearched={setHasSearched}
+              />
+            )}
+
+            {renderSearchResults()}
+          </div>
         </div>
-      </div>
+      </>
     );
   };
 
@@ -492,7 +777,7 @@ export default function Botany() {
                 className="rounded border-gray-300 text-green-600 focus:ring-green-500"
               />
               <span>Has Valid Image</span>
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                   Only show plants with image attachments (UUID-based images)
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                 </div>
@@ -512,6 +797,51 @@ export default function Botany() {
                 Only show plants with valid latitude and longitude coordinates
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
               </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasMapView}
+                onChange={(e) => {
+                  setHasMapView(e.target.checked);
+                  // If enabling Map View, also enable Has Geo Coordinates
+                  if (e.target.checked && !hasValidGeoCoords) {
+                    setHasValidGeoCoords(true);
+                  }
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Map View</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Show results on the map (UI only)
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={selectArea}
+                onChange={(e) => {
+                  setSelectArea(e.target.checked);
+                  setAreaBounds(null);
+                  setHasSearched(false);
+                  // If enabling Select Area, also enable Map View and Has Geo Coordinates
+                  if (e.target.checked) {
+                    setHasMapView(true);
+                    setHasValidGeoCoords(true);
+                    // If areaBounds already exists, trigger search
+                    if (areaBounds) {
+                      setHasSearched(true);
+                    }
+                  }
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Select Area</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Draw a rectangle on the map to filter results by area
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
             </label>
           </div>
         </div>
@@ -739,42 +1069,6 @@ export default function Botany() {
               + Add Search Rule
             </Button>
             
-            {/* Filter Checkboxes for Advanced Search */}
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-                <input
-                  type="checkbox"
-                  checked={hasValidImage}
-                  onChange={(e) => {
-                    setHasValidImage(e.target.checked);
-                    setHasSearched(false);
-                  }}
-                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                />
-                <span>Has Valid Image</span>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Only show plants with image attachments (UUID-based images)
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-                <input
-                  type="checkbox"
-                  checked={hasValidGeoCoords}
-                  onChange={(e) => {
-                    setHasValidGeoCoords(e.target.checked);
-                    setHasSearched(false);
-                  }}
-                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                />
-                <span>Has Geo Coordinates</span>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Only show plants with valid latitude and longitude coordinates
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
-              </label>
-            </div>
-            
             <Button 
               onClick={handleSearch}
               disabled={isLoading}
@@ -793,6 +1087,86 @@ export default function Botany() {
                 "Search"
               )}
             </Button>
+          </div>
+          {/* Filter Checkboxes for Advanced Search */}
+          <div className="flex items-center gap-6 justify-center pt-4 border-t border-gray-200">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasValidImage}
+                onChange={(e) => {
+                  setHasValidImage(e.target.checked);
+                  setHasSearched(false);
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Has Valid Image</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Only show plants with image attachments (UUID-based images)
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasValidGeoCoords}
+                onChange={(e) => {
+                  setHasValidGeoCoords(e.target.checked);
+                  setHasSearched(false);
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Has Geo Coordinates</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Only show plants with valid latitude and longitude coordinates
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasMapView}
+                onChange={(e) => {
+                  setHasMapView(e.target.checked);
+                  // If enabling Map View, also enable Has Geo Coordinates
+                  if (e.target.checked && !hasValidGeoCoords) {
+                    setHasValidGeoCoords(true);
+                  }
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Map View</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Show results on the map (UI only)
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={selectArea}
+                onChange={(e) => {
+                  setSelectArea(e.target.checked);
+                  setAreaBounds(null);
+                  setHasSearched(false);
+                  // If enabling Select Area, also enable Map View and Has Geo Coordinates
+                  if (e.target.checked) {
+                    setHasMapView(true);
+                    setHasValidGeoCoords(true);
+                    // If areaBounds already exists, trigger search
+                    if (areaBounds) {
+                      setHasSearched(true);
+                    }
+                  }
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Select Area</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Draw a rectangle on the map to filter results by area
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+            </label>
           </div>
         </div>
       );
@@ -838,6 +1212,20 @@ export default function Botany() {
                   : 'Enter your search criteria and click the Search button to begin'
                 }
               </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // If selectArea is enabled but no area is selected, prompt the user
+    if (selectArea && !areaBounds) {
+      return (
+        <div className="w-full flex justify-center py-16">
+          <div className="text-center space-y-4">
+            <div className="text-gray-500">
+              <p className="text-lg">Select an area on the map</p>
+              <p className="text-sm">Draw and adjust the rectangle to filter results by area.</p>
             </div>
           </div>
         </div>
@@ -987,6 +1375,29 @@ export default function Botany() {
                   <option value="redactLocalityAcceptedTaxon-desc">Redact Locality Accepted Taxon (Z-A)</option>
                 </select>
               </div>
+              <div className="flex items-center gap-2">
+                <span>
+                  Page
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={e => {
+                      let page = Number(e.target.value);
+                      if (isNaN(page) || page < 1) page = 1;
+                      if (page > totalPages) page = totalPages;
+                      handlePageChange(page);
+                    }}
+                    className="w-16 mx-1 text-center border rounded"
+                  />
+                  of {totalPages}
+                </span>
+                <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>{'>'}</Button>
+                <Button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages}>{'>>'}</Button>
+                <Button onClick={() => handlePageChange(1)} disabled={currentPage === 1}>{'<<'}</Button>
+                <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>{'<'}</Button>
+              </div>
             </div>
           </div>
         )}
@@ -1046,6 +1457,29 @@ export default function Botany() {
         </div>
       </div>
     );
+  };
+
+  // In Botany component, define handleRectangleComplete so it has access to setHasSearched
+  const handleRectangleComplete = (rectangle: google.maps.Rectangle) => {
+    if (rectangleRef.current) {
+      rectangleRef.current.setMap(null);
+      rectangleRef.current = null;
+    }
+    rectangleRef.current = rectangle;
+    setRectangleActive(true);
+    setDrawingMode(null); // Disable further drawing
+    // Save bounds
+    const bounds = rectangle.getBounds();
+    if (!bounds) return;
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    setAreaBounds({
+      north: ne.lat(),
+      south: sw.lat(),
+      east: ne.lng(),
+      west: sw.lng(),
+    });
+    setHasSearched(true);
   };
 
   return render();

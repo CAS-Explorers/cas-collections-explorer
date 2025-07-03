@@ -88,6 +88,7 @@ export const _materializeSearchResults = internalMutation({
     cursor: v.union(v.null(), v.string()),
   },
   handler: async (ctx, { rules, sort, searchId, cursor }) => {
+    console.log(`[DEBUG startMaterializingResults] searchId=${searchId} rules=${JSON.stringify(rules)}`);
     try {
       const validRules = rules.filter(r => r.value !== undefined && r.value !== null && String(r.value).trim() !== "");
       
@@ -300,7 +301,11 @@ function applyAllFilters(documents: Doc<"botany">[], rules: SearchRule[]): Doc<"
           const min = Number(ruleValue);
           const max = Number(rule.secondValue);
           if (isNaN(num) || isNaN(min) || isNaN(max)) return false;
-          return num >= min && num <= max;
+          const result = num >= min && num <= max;
+          if (rule.field === "latitude1" || rule.field === "longitude1") {
+            console.log(`[DEBUG between] doc._id=${doc._id} field=${rule.field} value=${fieldValue} num=${num} min=${min} max=${max} result=${result}`);
+          }
+          return result;
         }
         case "not_between": {
           if (fieldValue === null || typeof fieldValue === 'undefined' || (typeof fieldValue === 'string' && fieldValue.trim() === '')) return false;
