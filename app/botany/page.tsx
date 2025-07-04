@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,9 @@ import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useQuery, useMutation } from "convex/react";
 import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
-import { GoogleMap, Marker, useJsApiLoader, InfoWindow, OverlayView, DrawingManager, Rectangle } from '@react-google-maps/api';
+import { GoogleMap, Marker, useJsApiLoader, OverlayView, DrawingManager } from '@react-google-maps/api';
+import Image from 'next/image';
 import { extractImageUrl } from '@/lib/utils';
-import { useQuery as useConvexQuery } from "convex/react";
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -111,15 +111,73 @@ const numericFields = [
 ];
 
 // Add this at the top of the file, outside any component
-const GOOGLE_MAP_LIBRARIES = ['drawing'] as any;
+const GOOGLE_MAP_LIBRARIES: ("drawing")[] = ['drawing'];
+
+import { Id } from "@/convex/_generated/dataModel";
+
+interface Plant {
+  _id: Id<"botany">;
+  _creationTime: number;
+  cas_id: string;
+  accessionNumber: number | string;
+  barCode: number | string;
+  scientificName: string;
+  endDateMonth: number | string;
+  endDateDay: number | string;
+  endDateYear: number | string;
+  phenology: string;
+  startDateMonth: number | string;
+  startDateDay: number | string;
+  startDateYear: number | string;
+  class: string;
+  notes: string;
+  redactLocalityCo: string;
+  collectionObjectAttachments: number | string;
+  collectors: string;
+  continent: string;
+  county: string;
+  country: string;
+  determinedDate: string;
+  determiner: string;
+  family: string;
+  genus: string;
+  geoc: string;
+  img: string;
+  latitude1: number | string;
+  localityName: string;
+  longitude1: number | string;
+  maxElevation: number | string;
+  minElevation: number | string;
+  herbarium: string;
+  order: string;
+  originalElevationUnit: string;
+  preparations: string;
+  habitat: string;
+  species: string;
+  state: string;
+  collectorNumber: string;
+  specimenDescription: number | string;
+  localityContinued: number | string;
+  timestampModified: string;
+  town: string;
+  typeStatusName: string;
+  verbatimDate: number | string;
+  redactLocalityTaxon: string;
+  redactLocalityAcceptedTaxon: string;
+  botanyId?: string;
+}
+
+interface MarkerPlant extends Plant {
+  latitude1: number;
+  longitude1: number;
+}
 
 // Update MapView props
 type MapViewProps = {
-  plants: any[],
+  plants: Plant[],
   selectArea: boolean,
   areaBounds: google.maps.LatLngBoundsLiteral | null,
   setAreaBounds: (b: google.maps.LatLngBoundsLiteral | null) => void,
-  handleRectangleComplete: (rectangle: google.maps.Rectangle) => void,
   rectangleRef: React.MutableRefObject<google.maps.Rectangle | null>,
   rectangleActive: boolean,
   setRectangleActive: React.Dispatch<React.SetStateAction<boolean>>,
@@ -129,25 +187,21 @@ type MapViewProps = {
 };
 
 // MapView component for displaying pins
-function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangleComplete, rectangleRef, rectangleActive, setRectangleActive, drawingMode, setDrawingMode, setHasSearched }: MapViewProps) {
+function MapView({ plants, selectArea, areaBounds, setAreaBounds, rectangleRef, rectangleActive, setRectangleActive, drawingMode, setDrawingMode, setHasSearched }: MapViewProps) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: GOOGLE_MAP_LIBRARIES,
   });
-  const [showDrawButton, setShowDrawButton] = useState(false);
-  const [mapInteractive, setMapInteractive] = useState(true);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 20, lng: 0 });
   const [mapZoom, setMapZoom] = useState(3);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markers = plants.filter(p =>
+  const markers: MarkerPlant[] = plants.filter((p): p is MarkerPlant =>
     typeof p.latitude1 === 'number' && typeof p.longitude1 === 'number' &&
     !isNaN(p.latitude1) && !isNaN(p.longitude1)
   );
-  const [selectedPlant, setSelectedPlant] = useState<any | null>(null);
+  const [selectedPlant, setSelectedPlant] = useState<MarkerPlant | null>(null);
   const PLACEHOLDER_IMAGE = "/cal_academy.png";
   const [forceHideRectangle, setForceHideRectangle] = useState(false);
-  const rectanglesRef = useRef<google.maps.Rectangle[]>([]);
-  const [drawnRectangle, setDrawnRectangle] = useState<google.maps.Rectangle | null>(null);
   const allDrawnRectangles = useRef<google.maps.Rectangle[]>([]);
   const [drawAreaActive, setDrawAreaActive] = useState(false);
 
@@ -156,7 +210,7 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
     if (!selectArea || areaBounds) {
       setDrawingMode(null);
     }
-  }, [selectArea, areaBounds]);
+  }, [selectArea, areaBounds, setDrawingMode]);
 
   // Remove rectangle when areaBounds is cleared
   useEffect(() => {
@@ -165,7 +219,7 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
       rectangleRef.current = null;
       setRectangleActive(false);
     }
-  }, [areaBounds]);
+  }, [areaBounds, rectangleRef, setRectangleActive]);
 
   // Remove rectangle on unmount
   useEffect(() => {
@@ -179,7 +233,7 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
       });
       allDrawnRectangles.current = [];
     };
-  }, []);
+  }, [rectangleRef]);
 
   // Handler for rectanglecomplete
   // This function is now passed as a prop to MapView
@@ -192,7 +246,6 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
       rect.setMap(null);
     });
     allDrawnRectangles.current = [];
-    setDrawnRectangle(null);
     rectangleRef.current = null;
     setRectangleActive(false);
     setAreaBounds(null);
@@ -251,11 +304,12 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
           >
             <div className="w-64 bg-white rounded-lg shadow-xl border border-gray-200" style={{padding: 0, marginBottom: 16}}>
               <div className="relative" style={{padding: 0, margin: 0}}>
-                <img
+                <Image
                   src={extractImageUrl(selectedPlant.img, "500") || PLACEHOLDER_IMAGE}
-                  alt={selectedPlant.scientificName}
-                  className="object-cover"
-                  style={{ width: '100%', height: 'auto', aspectRatio: '4/3', display: 'block', borderRadius: '0.5rem 0.5rem 0 0', margin: 0, padding: 0 }}
+                  alt={selectedPlant.scientificName || ''}
+                  layout="fill"
+                  objectFit="cover"
+                  className="rounded-t-lg"
                 />
                 <button
                   onClick={() => setSelectedPlant(null)}
@@ -299,7 +353,6 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
                 // Remove all previous rectangles (single-box mode)
                 allDrawnRectangles.current.forEach(r => r.setMap(null));
                 allDrawnRectangles.current = [rect];
-                setDrawnRectangle(rect);
                 rectangleRef.current = rect;
                 setRectangleActive(true);
                 setDrawingMode(null);
@@ -379,7 +432,7 @@ export default function Botany() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Move getBasicSearchRules to the top of the component
-  const getBasicSearchRules = () => {
+  const getBasicSearchRules = useCallback(() => {
     if (!basicSearchQuery.trim()) return [];
     const terms = basicSearchQuery.trim().split(',').map((t: string) => t.trim()).filter((term: string) => term.length > 0);
     if (terms.length === 0) return [];
@@ -396,18 +449,20 @@ export default function Botany() {
         value: basicSearchQuery.trim()
       }];
     }
-  };
+  }, [basicSearchQuery, basicSearchType]);
 
   // Add area filter to search rules if area is selected
-  const latMin = areaBounds ? Math.min(areaBounds.south, areaBounds.north) : undefined;
-  const latMax = areaBounds ? Math.max(areaBounds.south, areaBounds.north) : undefined;
-  const lngMin = areaBounds ? Math.min(areaBounds.west, areaBounds.east) : undefined;
-  const lngMax = areaBounds ? Math.max(areaBounds.west, areaBounds.east) : undefined;
+  const areaFilterRule = useMemo(() => {
+    const latMin = areaBounds ? Math.min(areaBounds.south, areaBounds.north) : undefined;
+    const latMax = areaBounds ? Math.max(areaBounds.south, areaBounds.north) : undefined;
+    const lngMin = areaBounds ? Math.min(areaBounds.west, areaBounds.east) : undefined;
+    const lngMax = areaBounds ? Math.max(areaBounds.west, areaBounds.east) : undefined;
 
-  const areaFilterRule = (latMin !== undefined && latMax !== undefined && lngMin !== undefined && lngMax !== undefined) ? [
-    { field: "latitude1", operator: "between", value: latMin ?? 0, secondValue: latMax ?? 0 },
-    { field: "longitude1", operator: "between", value: lngMin ?? 0, secondValue: lngMax ?? 0 }
-  ] : [];
+    return (latMin !== undefined && latMax !== undefined && lngMin !== undefined && lngMax !== undefined) ? [
+      { field: "latitude1", operator: "between", value: latMin ?? 0, secondValue: latMax ?? 0 },
+      { field: "longitude1", operator: "between", value: lngMin ?? 0, secondValue: lngMax ?? 0 }
+    ] : [];
+  }, [areaBounds]);
 
 
   const searchData = useQuery(api.botany.searchPlants, hasSearched && (!selectArea || (selectArea && areaBounds)) ? {
@@ -638,7 +693,7 @@ export default function Botany() {
         sort,
       });
     }
-  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort), hasValidImage, hasValidGeoCoords]);
+  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, searchRules, sort, hasValidImage, hasValidGeoCoords, areaBounds, areaFilterRule, getBasicSearchRules, startMaterializing]);
 
 
 
@@ -653,11 +708,10 @@ export default function Botany() {
             {renderSearch()}
             {(hasMapView || selectArea) && (
               <MapView
-                plants={searchData?.page || []}
+                plants={searchData?.page?.filter((p): p is Plant => p !== null && p !== undefined) as Plant[] || []}
                 selectArea={selectArea}
                 areaBounds={areaBounds}
                 setAreaBounds={setAreaBounds}
-                handleRectangleComplete={handleRectangleComplete}
                 rectangleRef={rectangleRef}
                 rectangleActive={rectangleActive}
                 setRectangleActive={setRectangleActive}
@@ -1268,7 +1322,7 @@ export default function Botany() {
             specimens
               {searchMode === 'basic' && basicSearchQuery && (
                 <span className="text-sm text-gray-500 ml-2">
-                  for "{basicSearchQuery}" ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
+                  for &quot;{basicSearchQuery}&quot; ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
                 </span>
               )}
               {(hasValidImage || hasValidGeoCoords) && (
@@ -1365,7 +1419,7 @@ export default function Botany() {
             </div>
           ) : (
             <>
-              {searchData.page.map((plant: any) => (
+              {searchData.page.filter((p): p is Plant => p !== null && p !== undefined).map((plant: Plant) => (
                 <BotanyCard 
                   key={plant._id} 
                   plant={plant} 
@@ -1407,28 +1461,7 @@ export default function Botany() {
     );
   };
 
-  // In Botany component, define handleRectangleComplete so it has access to setHasSearched
-  const handleRectangleComplete = (rectangle: google.maps.Rectangle) => {
-    if (rectangleRef.current) {
-      rectangleRef.current.setMap(null);
-      rectangleRef.current = null;
-    }
-    rectangleRef.current = rectangle;
-    setRectangleActive(true);
-    setDrawingMode(null); // Disable further drawing
-    // Save bounds
-    const bounds = rectangle.getBounds();
-    if (!bounds) return;
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    setAreaBounds({
-      north: ne.lat(),
-      south: sw.lat(),
-      east: ne.lng(),
-      west: sw.lng(),
-    });
-    setHasSearched(true);
-  };
+  
 
   const SORT_FIELDS = [
     { value: "scientificName-asc", label: "Scientific Name (A-Z)" },
