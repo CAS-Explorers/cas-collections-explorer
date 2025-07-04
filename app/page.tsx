@@ -8,6 +8,7 @@ import SearchBar from '@/components/search-bar';
 import { useRouter } from 'next/navigation';
 import BackgroundImage from './components/BackgroundImage';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const collections = [
   { title: "Botany", href: "/botany" },
@@ -114,9 +115,11 @@ export default function Home() {
           <div className="flex flex-row items-stretch gap-8 relative">
             {/* Left: Decorative nature gif */}
             <div className="hidden md:block flex-shrink-0" style={{ width: '320px', minWidth: '220px', maxWidth: '400px' }}>
-              <img 
+              <Image 
                 src="/nature-background.gif" 
                 alt="Nature decorative background" 
+                width={320}
+                height={240}
                 className="h-full w-full object-cover rounded-lg opacity-40 pointer-events-none" 
               />
             </div>
