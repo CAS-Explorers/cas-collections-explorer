@@ -50,6 +50,8 @@ export const Plant = {
   verbatimDate: v.union(v.float64(), v.string()),
   redactLocalityTaxon: v.string(),
   redactLocalityAcceptedTaxon: v.string(),
+  botanyId: v.optional(v.string()),
+  // hasWorkingImage: v.optional(v.boolean()), // Removed after migration
 };
 
 export default defineSchema({
@@ -58,6 +60,7 @@ export default defineSchema({
     value: v.number(),
   }),
   botany: defineTable(Plant)
+    .index("by_botanyId", ["botanyId"])
     .index("by_longitude", ["longitude1"])
     .index("by_latitude", ["latitude1"])
     .index("by_minElevation", ["minElevation"])
@@ -166,5 +169,47 @@ export default defineSchema({
     .searchIndex("search_timestampModified", {
       searchField: "timestampModified",
     }),
+  search_counts: defineTable({
+    searchId: v.string(),
+    total: v.number(),
+  }).index("by_searchId", ["searchId"]),
+  search_results: defineTable({
+    searchId: v.string(),
+    results: v.array(v.id("botany")),
+    sort: v.object({
+      field: v.string(),
+      direction: v.string(),
+    }),
+    totalChunks: v.optional(v.number()),
+    hasMultipleChunks: v.optional(v.boolean()),
+  }).index("by_searchId", ["searchId"]),
+  search_accumulation: defineTable({
+    searchId: v.string(),
+    ids: v.array(v.id("botany")),
+  }).index("by_searchId", ["searchId"]),
+  search_sorted_chunks: defineTable({
+    searchId: v.string(),
+    chunkIndex: v.number(),
+    results: v.array(v.id("botany")),
+  }).index("by_searchId", ["searchId"]),
+  search_result_chunks: defineTable({
+    searchId: v.string(),
+    chunkIndex: v.number(),
+    results: v.array(v.id("botany")),
+  }).index("by_searchId", ["searchId"]),
+  search_id_chunks: defineTable({
+    searchId: v.string(),
+    chunkIndex: v.number(),
+    ids: v.array(v.id("botany")),
+  }).index("by_searchId", ["searchId"]),
+  search_merge_accumulation: defineTable({
+    searchId: v.string(),
+    ids: v.array(v.id("botany")),
+  }).index("by_searchId", ["searchId"]),
+  search_final_sort_chunks: defineTable({
+    searchId: v.string(),
+    chunkIndex: v.number(),
+    results: v.array(v.id("botany")),
+  }).index("by_searchId", ["searchId"]),
 });
 //contains any works on a string field like "Vernon Oswald, Lowell Ahart" by doing a substring match.

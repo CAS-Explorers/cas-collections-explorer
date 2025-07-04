@@ -60,7 +60,13 @@ export default function PlantPage() {
   useEffect(() => {
     if (plant && plant.img && plant.img.length > 0) {
       const url = extractImageUrl(plant.img, "500");
-      if (url) setImageSrc(url);
+      if (url) {
+        setImageSrc(url);
+      } else {
+        setImageSrc("/cal_academy.png");
+      }
+    } else {
+      setImageSrc("/cal_academy.png");
     }
   }, [plant]);
 
