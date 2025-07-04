@@ -864,6 +864,53 @@ export default function Botany() {
         setHasSearched(false);
       };
 
+      const SEARCH_FIELDS = [
+        { value: "accessionNumber", label: "Accession Number" },
+        { value: "barCode", label: "Bar Code" },
+        { value: "class", label: "Class" },
+        { value: "collectors", label: "Collectors" },
+        { value: "collectorNumber", label: "Collector Number" },
+        { value: "collectionObjectAttachments", label: "Collection Object Attachment" },
+        { value: "continent", label: "Continent" },
+        { value: "country", label: "Country" },
+        { value: "county", label: "County" },
+        { value: "determinedDate", label: "Determination Date" },
+        { value: "determiner", label: "Determiner" },
+        { value: "endDateDay", label: "End Date Day" },
+        { value: "endDateMonth", label: "End Date Month" },
+        { value: "endDateYear", label: "End Date Year" },
+        { value: "family", label: "Family" },
+        { value: "genus", label: "Genus" },
+        { value: "habitat", label: "Habitat" },
+        { value: "herbarium", label: "Herbarium" },
+        { value: "latitude1", label: "Latitude" },
+        { value: "localityContinued", label: "Locality Continued" },
+        { value: "localityName", label: "Locality" },
+        { value: "longitude1", label: "Longitude" },
+        { value: "maxElevation", label: "Max Elevation" },
+        { value: "minElevation", label: "Min Elevation" },
+        { value: "notes", label: "Notes" },
+        { value: "order", label: "Order" },
+        { value: "originalElevationUnit", label: "Elevation Unit" },
+        { value: "phenology", label: "Phenology" },
+        { value: "preparations", label: "Preparations" },
+        { value: "redactLocalityAcceptedTaxon", label: "Redact Locality Accepted Taxon" },
+        { value: "redactLocalityCo", label: "Redact Locality Co" },
+        { value: "redactLocalityTaxon", label: "Redact Locality Taxon" },
+        { value: "scientificName", label: "Scientific Name" },
+        { value: "species", label: "Species" },
+        { value: "specimenDescription", label: "Specimen Description" },
+        { value: "startDateDay", label: "Start Date Day" },
+        { value: "startDateMonth", label: "Start Date Month" },
+        { value: "startDateYear", label: "Start Date Year" },
+        { value: "state", label: "State" },
+        { value: "timestampModified", label: "Timestamp Modified" },
+        { value: "town", label: "Town" },
+        { value: "typeStatusName", label: "Type Status" },
+        { value: "verbatimDate", label: "Verbatim Date" },
+      ];
+      const SORTED_SEARCH_FIELDS = [...SEARCH_FIELDS].sort((a, b) => a.label.localeCompare(b.label));
+
       return (
         <div className="flex flex-col gap-3 w-full">
           {searchRules.map((rule) => (
@@ -873,49 +920,9 @@ export default function Botany() {
                 onChange={(e) => handleRuleChange(rule.id, "index", e.target.value)}
                 className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
               >
-                <option value="scientificName">Scientific Name</option>
-                <option value="country">Country</option>
-                <option value="collectors">Collectors</option>
-                <option value="state">State</option>
-                <option value="county">County</option>
-                <option value="class">Class</option>
-                <option value="order">Order</option>
-                <option value="family">Family</option>
-                <option value="genus">Genus</option>
-                <option value="species">Species</option>
-                <option value="herbarium">Herbarium</option>
-                <option value="habitat">Habitat</option>
-                <option value="specimenDescription">Specimen Description</option>
-                <option value="localityContinued">Locality Continued</option>
-                <option value="determiner">Determiner</option>
-                <option value="continent">Continent</option>
-                <option value="town">Town</option>
-                <option value="typeStatusName">Type Status</option>
-                <option value="preparations">Preparations</option>
-                <option value="collectionObjectAttachments">Collection Object Attachment</option>
-                <option value="localityName">Locality</option>
-                <option value="determinedDate">Determination Date</option>
-                <option value="verbatimDate">Verbatim Date</option>
-                <option value="barCode">Bar Code</option>
-                <option value="accessionNumber">Accession Number</option>
-                <option value="collectorNumber">Collector Number</option>
-                <option value="minElevation">Min Elevation</option>
-                <option value="maxElevation">Max Elevation</option>
-                <option value="originalElevationUnit">Elevation Unit</option>
-                <option value="latitude1">Latitude</option>
-                <option value="longitude1">Longitude</option>
-                <option value="notes">Notes</option>
-                <option value="phenology">Phenology</option>
-                <option value="redactLocalityCo">Redact Locality Co</option>
-                <option value="redactLocalityTaxon">Redact Locality Taxon</option>
-                <option value="redactLocalityAcceptedTaxon">Redact Locality Accepted Taxon</option>
-                <option value="timestampModified">Timestamp Modified</option>
-                <option value="startDateMonth">Start Date Month</option>
-                <option value="startDateDay">Start Date Day</option>
-                <option value="startDateYear">Start Date Year</option>
-                <option value="endDateMonth">End Date Month</option>
-                <option value="endDateDay">End Date Day</option>
-                <option value="endDateYear">End Date Year</option>
+                {SORTED_SEARCH_FIELDS.map(field => (
+                  <option key={field.value} value={field.value}>{field.label}</option>
+                ))}
               </select>
 
               {/* Show numeric filter options for numeric fields */}
@@ -1293,89 +1300,20 @@ export default function Botany() {
                   className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
                 >
                   <option value="-asc">Unsorted</option>
-                  <option value="scientificName-asc">Scientific Name (A-Z)</option>
-                  <option value="scientificName-desc">Scientific Name (Z-A)</option>
-                  <option value="family-asc">Family (A-Z)</option>
-                  <option value="family-desc">Family (Z-A)</option>
-                  <option value="order-asc">Order (A-Z)</option>
-                  <option value="order-desc">Order (Z-A)</option>
-                  <option value="class-asc">Class (A-Z)</option>
-                  <option value="class-desc">Class (Z-A)</option>
-                  <option value="genus-asc">Genus (A-Z)</option>
-                  <option value="genus-desc">Genus (Z-A)</option>
-                  <option value="species-asc">Species (A-Z)</option>
-                  <option value="species-desc">Species (Z-A)</option>
-                  <option value="country-asc">Country (A-Z)</option>
-                  <option value="country-desc">Country (Z-A)</option>
-                  <option value="state-asc">State (A-Z)</option>
-                  <option value="state-desc">State (Z-A)</option>
-                  <option value="county-asc">County (A-Z)</option>
-                  <option value="county-desc">County (Z-A)</option>
-                  <option value="barCode-asc">Barcode (Asc)</option>
-                  <option value="barCode-desc">Barcode (Desc)</option>
-                  <option value="accessionNumber-asc">Accession # (Asc)</option>
-                  <option value="accessionNumber-desc">Accession # (Desc)</option>
-                  <option value="longitude1-asc">Longitude (Asc)</option>
-                  <option value="longitude1-desc">Longitude (Desc)</option>
-                  <option value="latitude1-asc">Latitude (Asc)</option>
-                  <option value="latitude1-desc">Latitude (Desc)</option>
-                  <option value="minElevation-asc">Min Elevation (Asc)</option>
-                  <option value="minElevation-desc">Min Elevation (Desc)</option>
-                  <option value="maxElevation-asc">Max Elevation (Asc)</option>
-                  <option value="maxElevation-desc">Max Elevation (Desc)</option>
-                  <option value="startDateMonth-asc">Start Date Month (Asc)</option>
-                  <option value="startDateMonth-desc">Start Date Month (Desc)</option>
-                  <option value="startDateDay-asc">Start Date Day (Asc)</option>
-                  <option value="startDateDay-desc">Start Date Day (Desc)</option>
-                  <option value="startDateYear-asc">Start Date Year (Asc)</option>
-                  <option value="startDateYear-desc">Start Date Year (Desc)</option>
-                  <option value="endDateMonth-asc">End Date Month (Asc)</option>
-                  <option value="endDateMonth-desc">End Date Month (Desc)</option>
-                  <option value="endDateDay-asc">End Date Day (Asc)</option>
-                  <option value="endDateDay-desc">End Date Day (Desc)</option>
-                  <option value="endDateYear-asc">End Date Year (Asc)</option>
-                  <option value="endDateYear-desc">End Date Year (Desc)</option>
-                  <option value="collectors-asc">Collectors (A-Z)</option>
-                  <option value="collectors-desc">Collectors (Z-A)</option>
-                  <option value="continent-asc">Continent (A-Z)</option>
-                  <option value="continent-desc">Continent (Z-A)</option>
-                  <option value="determinedDate-asc">Determined Date (A-Z)</option>
-                  <option value="determinedDate-desc">Determined Date (Z-A)</option>
-                  <option value="determiner-asc">Determiner (A-Z)</option>
-                  <option value="determiner-desc">Determiner (Z-A)</option>
-                  <option value="habitat-asc">Habitat (A-Z)</option>
-                  <option value="habitat-desc">Habitat (Z-A)</option>
-                  <option value="herbarium-asc">Herbarium (A-Z)</option>
-                  <option value="herbarium-desc">Herbarium (Z-A)</option>
-                  <option value="localityName-asc">Locality (A-Z)</option>
-                  <option value="localityName-desc">Locality (Z-A)</option>
-                  <option value="phenology-asc">Phenology (A-Z)</option>
-                  <option value="phenology-desc">Phenology (Z-A)</option>
-                  <option value="preparations-asc">Preparations (A-Z)</option>
-                  <option value="preparations-desc">Preparations (Z-A)</option>
-                  <option value="town-asc">Town (A-Z)</option>
-                  <option value="town-desc">Town (Z-A)</option>
-                  <option value="typeStatusName-asc">Type Status (A-Z)</option>
-                  <option value="typeStatusName-desc">Type Status (Z-A)</option>
-                  <option value="verbatimDate-asc">Verbatim Date (A-Z)</option>
-                  <option value="verbatimDate-desc">Verbatim Date (Z-A)</option>
-                  <option value="timestampModified-asc">Last Modified (A-Z)</option>
-                  <option value="timestampModified-desc">Last Modified (Z-A)</option>
-                  <option value="originalElevationUnit-asc">Elevation Unit (A-Z)</option>
-                  <option value="originalElevationUnit-desc">Elevation Unit (Z-A)</option>
-                  <option value="collectorNumber-asc">Collector Number (A-Z)</option>
-                  <option value="collectorNumber-desc">Collector Number (Z-A)</option>
-                  <option value="localityContinued-asc">Locality Continued (A-Z)</option>
-                  <option value="localityContinued-desc">Locality Continued (Z-A)</option>
-                  <option value="redactLocalityCo-asc">Redact Locality Co (A-Z)</option>
-                  <option value="redactLocalityCo-desc">Redact Locality Co (Z-A)</option>
-                  <option value="redactLocalityTaxon-asc">Redact Locality Taxon (A-Z)</option>
-                  <option value="redactLocalityTaxon-desc">Redact Locality Taxon (Z-A)</option>
-                  <option value="redactLocalityAcceptedTaxon-asc">Redact Locality Accepted Taxon (A-Z)</option>
-                  <option value="redactLocalityAcceptedTaxon-desc">Redact Locality Accepted Taxon (Z-A)</option>
+                  {SORTED_SORT_FIELDS.map((field: { value: string; label: string }) => (
+                    <option key={field.value} value={field.value}>{field.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-center gap-2">
+                <Button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page">
+                  {/* Double left chevron */}
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17l-5-5 5-5M10 17l-5-5 5-5"/></svg>
+                </Button>
+                <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page">
+                  {/* Single left chevron */}
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17l-5-5 5-5"/></svg>
+                </Button>
                 <span>
                   Page
                   <input
@@ -1393,10 +1331,20 @@ export default function Botany() {
                   />
                   of {totalPages}
                 </span>
-                <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>{'>'}</Button>
-                <Button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages}>{'>>'}</Button>
-                <Button onClick={() => handlePageChange(1)} disabled={currentPage === 1}>{'<<'}</Button>
-                <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>{'<'}</Button>
+                <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page">
+                  {/* Single right chevron */}
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 17l5-5-5-5"/></svg>
+                </Button>
+                <Button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} aria-label="Last page">
+                  {/* Double right chevron */}
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 17l5-5-5-5M10 17l5-5-5-5"/></svg>
+                </Button>
+                <span className="ml-4 text-gray-600">
+                  Displaying records {(currentPage - 1) * RESULTS_PER_PAGE + 1}
+                  -
+                  {Math.min(currentPage * RESULTS_PER_PAGE, totalResults)}
+                  {' '}of {totalResults}
+                </span>
               </div>
             </div>
           </div>
@@ -1481,6 +1429,90 @@ export default function Botany() {
     });
     setHasSearched(true);
   };
+
+  const SORT_FIELDS = [
+    { value: "scientificName-asc", label: "Scientific Name (A-Z)" },
+    { value: "scientificName-desc", label: "Scientific Name (Z-A)" },
+    { value: "family-asc", label: "Family (A-Z)" },
+    { value: "family-desc", label: "Family (Z-A)" },
+    { value: "order-asc", label: "Order (A-Z)" },
+    { value: "order-desc", label: "Order (Z-A)" },
+    { value: "class-asc", label: "Class (A-Z)" },
+    { value: "class-desc", label: "Class (Z-A)" },
+    { value: "genus-asc", label: "Genus (A-Z)" },
+    { value: "genus-desc", label: "Genus (Z-A)" },
+    { value: "species-asc", label: "Species (A-Z)" },
+    { value: "species-desc", label: "Species (Z-A)" },
+    { value: "country-asc", label: "Country (A-Z)" },
+    { value: "country-desc", label: "Country (Z-A)" },
+    { value: "state-asc", label: "State (A-Z)" },
+    { value: "state-desc", label: "State (Z-A)" },
+    { value: "county-asc", label: "County (A-Z)" },
+    { value: "county-desc", label: "County (Z-A)" },
+    { value: "barCode-asc", label: "Barcode (Asc)" },
+    { value: "barCode-desc", label: "Barcode (Desc)" },
+    { value: "accessionNumber-asc", label: "Accession # (Asc)" },
+    { value: "accessionNumber-desc", label: "Accession # (Desc)" },
+    { value: "longitude1-asc", label: "Longitude (Asc)" },
+    { value: "longitude1-desc", label: "Longitude (Desc)" },
+    { value: "latitude1-asc", label: "Latitude (Asc)" },
+    { value: "latitude1-desc", label: "Latitude (Desc)" },
+    { value: "minElevation-asc", label: "Min Elevation (Asc)" },
+    { value: "minElevation-desc", label: "Min Elevation (Desc)" },
+    { value: "maxElevation-asc", label: "Max Elevation (Asc)" },
+    { value: "maxElevation-desc", label: "Max Elevation (Desc)" },
+    { value: "startDateMonth-asc", label: "Start Date Month (Asc)" },
+    { value: "startDateMonth-desc", label: "Start Date Month (Desc)" },
+    { value: "startDateDay-asc", label: "Start Date Day (Asc)" },
+    { value: "startDateDay-desc", label: "Start Date Day (Desc)" },
+    { value: "startDateYear-asc", label: "Start Date Year (Asc)" },
+    { value: "startDateYear-desc", label: "Start Date Year (Desc)" },
+    { value: "endDateMonth-asc", label: "End Date Month (Asc)" },
+    { value: "endDateMonth-desc", label: "End Date Month (Desc)" },
+    { value: "endDateDay-asc", label: "End Date Day (Asc)" },
+    { value: "endDateDay-desc", label: "End Date Day (Desc)" },
+    { value: "endDateYear-asc", label: "End Date Year (Asc)" },
+    { value: "endDateYear-desc", label: "End Date Year (Desc)" },
+    { value: "collectors-asc", label: "Collectors (A-Z)" },
+    { value: "collectors-desc", label: "Collectors (Z-A)" },
+    { value: "continent-asc", label: "Continent (A-Z)" },
+    { value: "continent-desc", label: "Continent (Z-A)" },
+    { value: "determinedDate-asc", label: "Determined Date (A-Z)" },
+    { value: "determinedDate-desc", label: "Determined Date (Z-A)" },
+    { value: "determiner-asc", label: "Determiner (A-Z)" },
+    { value: "determiner-desc", label: "Determiner (Z-A)" },
+    { value: "habitat-asc", label: "Habitat (A-Z)" },
+    { value: "habitat-desc", label: "Habitat (Z-A)" },
+    { value: "herbarium-asc", label: "Herbarium (A-Z)" },
+    { value: "herbarium-desc", label: "Herbarium (Z-A)" },
+    { value: "localityName-asc", label: "Locality (A-Z)" },
+    { value: "localityName-desc", label: "Locality (Z-A)" },
+    { value: "phenology-asc", label: "Phenology (A-Z)" },
+    { value: "phenology-desc", label: "Phenology (Z-A)" },
+    { value: "preparations-asc", label: "Preparations (A-Z)" },
+    { value: "preparations-desc", label: "Preparations (Z-A)" },
+    { value: "town-asc", label: "Town (A-Z)" },
+    { value: "town-desc", label: "Town (Z-A)" },
+    { value: "typeStatusName-asc", label: "Type Status (A-Z)" },
+    { value: "typeStatusName-desc", label: "Type Status (Z-A)" },
+    { value: "verbatimDate-asc", label: "Verbatim Date (A-Z)" },
+    { value: "verbatimDate-desc", label: "Verbatim Date (Z-A)" },
+    { value: "timestampModified-asc", label: "Last Modified (A-Z)" },
+    { value: "timestampModified-desc", label: "Last Modified (Z-A)" },
+    { value: "originalElevationUnit-asc", label: "Elevation Unit (A-Z)" },
+    { value: "originalElevationUnit-desc", label: "Elevation Unit (Z-A)" },
+    { value: "collectorNumber-asc", label: "Collector Number (A-Z)" },
+    { value: "collectorNumber-desc", label: "Collector Number (Z-A)" },
+    { value: "localityContinued-asc", label: "Locality Continued (A-Z)" },
+    { value: "localityContinued-desc", label: "Locality Continued (Z-A)" },
+    { value: "redactLocalityCo-asc", label: "Redact Locality Co (A-Z)" },
+    { value: "redactLocalityCo-desc", label: "Redact Locality Co (Z-A)" },
+    { value: "redactLocalityTaxon-asc", label: "Redact Locality Taxon (A-Z)" },
+    { value: "redactLocalityTaxon-desc", label: "Redact Locality Taxon (Z-A)" },
+    { value: "redactLocalityAcceptedTaxon-asc", label: "Redact Locality Accepted Taxon (A-Z)" },
+    { value: "redactLocalityAcceptedTaxon-desc", label: "Redact Locality Accepted Taxon (Z-A)" },
+  ];
+  const SORTED_SORT_FIELDS = [...SORT_FIELDS].sort((a, b) => a.label.localeCompare(b.label));
 
   return render();
 }
