@@ -8,9 +8,9 @@ import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useQuery, useMutation } from "convex/react";
 import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
-import { GoogleMap, Marker, useJsApiLoader, InfoWindow, OverlayView, DrawingManager, Rectangle } from '@react-google-maps/api';
+import { GoogleMap, Marker, useJsApiLoader, OverlayView, DrawingManager } from '@react-google-maps/api';
 import { extractImageUrl } from '@/lib/utils';
-import { useQuery as useConvexQuery } from "convex/react";
+import type { Doc } from "../../convex/_generated/dataModel";
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -111,15 +111,14 @@ const numericFields = [
 ];
 
 // Add this at the top of the file, outside any component
-const GOOGLE_MAP_LIBRARIES = ['drawing'] as any;
+const GOOGLE_MAP_LIBRARIES = ['drawing'];
 
 // Update MapView props
 type MapViewProps = {
-  plants: any[],
+  plants: Doc<'botany'>[],
   selectArea: boolean,
   areaBounds: google.maps.LatLngBoundsLiteral | null,
   setAreaBounds: (b: google.maps.LatLngBoundsLiteral | null) => void,
-  handleRectangleComplete: (rectangle: google.maps.Rectangle) => void,
   rectangleRef: React.MutableRefObject<google.maps.Rectangle | null>,
   rectangleActive: boolean,
   setRectangleActive: React.Dispatch<React.SetStateAction<boolean>>,
@@ -129,25 +128,24 @@ type MapViewProps = {
 };
 
 // MapView component for displaying pins
-function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangleComplete, rectangleRef, rectangleActive, setRectangleActive, drawingMode, setDrawingMode, setHasSearched }: MapViewProps) {
+function MapView({ plants, selectArea, areaBounds, setAreaBounds, rectangleRef, rectangleActive, setRectangleActive, drawingMode, setDrawingMode, setHasSearched }: MapViewProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries: GOOGLE_MAP_LIBRARIES,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    libraries: GOOGLE_MAP_LIBRARIES as any,
   });
-  const [showDrawButton, setShowDrawButton] = useState(false);
-  const [mapInteractive, setMapInteractive] = useState(true);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 20, lng: 0 });
   const [mapZoom, setMapZoom] = useState(3);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markers = plants.filter(p =>
+  const markers = plants.filter((p: Doc<'botany'>) =>
     typeof p.latitude1 === 'number' && typeof p.longitude1 === 'number' &&
     !isNaN(p.latitude1) && !isNaN(p.longitude1)
   );
-  const [selectedPlant, setSelectedPlant] = useState<any | null>(null);
+  // Change the type of selectedPlant to Doc<'botany'> | null
+  const [selectedPlant, setSelectedPlant] = useState<Doc<'botany'> | null>(null);
   const PLACEHOLDER_IMAGE = "/cal_academy.png";
   const [forceHideRectangle, setForceHideRectangle] = useState(false);
-  const rectanglesRef = useRef<google.maps.Rectangle[]>([]);
-  const [drawnRectangle, setDrawnRectangle] = useState<google.maps.Rectangle | null>(null);
   const allDrawnRectangles = useRef<google.maps.Rectangle[]>([]);
   const [drawAreaActive, setDrawAreaActive] = useState(false);
 
@@ -192,7 +190,6 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
       rect.setMap(null);
     });
     allDrawnRectangles.current = [];
-    setDrawnRectangle(null);
     rectangleRef.current = null;
     setRectangleActive(false);
     setAreaBounds(null);
@@ -239,14 +236,14 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
         {markers.map((plant, i) => (
           <Marker
             key={plant._id || i}
-            position={{ lat: plant.latitude1, lng: plant.longitude1 }}
+            position={{ lat: Number(plant.latitude1), lng: Number(plant.longitude1) }}
             title={plant.scientificName || ''}
             onClick={() => setSelectedPlant(plant)}
           />
         ))}
         {selectedPlant && (
           <OverlayView
-            position={{ lat: selectedPlant.latitude1, lng: selectedPlant.longitude1 }}
+            position={{ lat: Number(selectedPlant.latitude1), lng: Number(selectedPlant.longitude1) }}
             mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
             <div className="w-64 bg-white rounded-lg shadow-xl border border-gray-200" style={{padding: 0, marginBottom: 16}}>
@@ -299,7 +296,6 @@ function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangl
                 // Remove all previous rectangles (single-box mode)
                 allDrawnRectangles.current.forEach(r => r.setMap(null));
                 allDrawnRectangles.current = [rect];
-                setDrawnRectangle(rect);
                 rectangleRef.current = rect;
                 setRectangleActive(true);
                 setDrawingMode(null);
@@ -604,31 +600,31 @@ export default function Botany() {
   useEffect(() => {
     if (hasSearched) {
       const rulesToSend = [
-        ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
-          if (rule.numericFilter) {
+          ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
+            if (rule.numericFilter) {
+              return {
+                field: rule.index,
+                operator: rule.numericFilter.type,
+                value: Number(rule.numericFilter.value),
+                ...(rule.numericFilter.secondValue !== undefined && {
+                  secondValue: Number(rule.numericFilter.secondValue)
+                })
+              };
+            }
+            if (rule.textFilter) {
+              return {
+                field: rule.index,
+                operator: rule.textFilter.type,
+                value: rule.textFilter.value,
+              };
+            }
             return {
               field: rule.index,
-              operator: rule.numericFilter.type,
-              value: Number(rule.numericFilter.value),
-              ...(rule.numericFilter.secondValue !== undefined && {
-                secondValue: Number(rule.numericFilter.secondValue)
-              })
+              operator: "=",
+              value: rule.value
             };
-          }
-          if (rule.textFilter) {
-            return {
-              field: rule.index,
-              operator: rule.textFilter.type,
-              value: rule.textFilter.value,
-            };
-          }
-          return {
-            field: rule.index,
-            operator: "=",
-            value: rule.value
-          };
-        })),
-        ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
+          })),
+          ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
         ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
         ...areaFilterRule
       ];
@@ -648,16 +644,15 @@ export default function Botany() {
     return (
       <>
 
-        <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
-          <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {renderSearch()}
+      <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {renderSearch()}
             {(hasMapView || selectArea) && (
               <MapView
-                plants={searchData?.page || []}
+                plants={(searchData?.page?.filter((p): p is Doc<'botany'> => !!p)) || []}
                 selectArea={selectArea}
                 areaBounds={areaBounds}
                 setAreaBounds={setAreaBounds}
-                handleRectangleComplete={handleRectangleComplete}
                 rectangleRef={rectangleRef}
                 rectangleActive={rectangleActive}
                 setRectangleActive={setRectangleActive}
@@ -667,9 +662,9 @@ export default function Botany() {
               />
             )}
 
-            {renderSearchResults()}
-          </div>
+          {renderSearchResults()}
         </div>
+      </div>
       </>
     );
   };
@@ -779,8 +774,8 @@ export default function Botany() {
               <span>Has Valid Image</span>
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                   Only show plants with image attachments (UUID-based images)
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
             </label>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
               <input
@@ -1095,40 +1090,40 @@ export default function Botany() {
               )}
             </Button>
           </div>
-          {/* Filter Checkboxes for Advanced Search */}
+            {/* Filter Checkboxes for Advanced Search */}
           <div className="flex items-center gap-6 justify-center pt-4 border-t border-gray-200">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={hasValidImage}
-                onChange={(e) => {
-                  setHasValidImage(e.target.checked);
-                  setHasSearched(false);
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Has Valid Image</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+                <input
+                  type="checkbox"
+                  checked={hasValidImage}
+                  onChange={(e) => {
+                    setHasValidImage(e.target.checked);
+                    setHasSearched(false);
+                  }}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span>Has Valid Image</span>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                 Only show plants with image attachments (UUID-based images)
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-              </div>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={hasValidGeoCoords}
-                onChange={(e) => {
-                  setHasValidGeoCoords(e.target.checked);
-                  setHasSearched(false);
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Has Geo Coordinates</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                Only show plants with valid latitude and longitude coordinates
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-              </div>
-            </label>
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+                <input
+                  type="checkbox"
+                  checked={hasValidGeoCoords}
+                  onChange={(e) => {
+                    setHasValidGeoCoords(e.target.checked);
+                    setHasSearched(false);
+                  }}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span>Has Geo Coordinates</span>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Only show plants with valid latitude and longitude coordinates
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </label>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
               <input
                 type="checkbox"
@@ -1146,7 +1141,7 @@ export default function Botany() {
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                 Show results on the map (UI only)
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-              </div>
+            </div>
             </label>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
               <input
@@ -1268,7 +1263,7 @@ export default function Botany() {
             specimens
               {searchMode === 'basic' && basicSearchQuery && (
                 <span className="text-sm text-gray-500 ml-2">
-                  for "{basicSearchQuery}" ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
+                  for &quot;{basicSearchQuery}&quot; ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
                 </span>
               )}
               {(hasValidImage || hasValidGeoCoords) && (
@@ -1357,7 +1352,7 @@ export default function Botany() {
                 <p className="text-lg">No results found.</p>
                 <p className="text-sm">
                   {searchMode === 'basic' && basicSearchQuery
-                    ? `No specimens found for "${basicSearchQuery}" (${basicSearchType === 'exact' ? 'exact match' : 'match any'}). Try different terms or switch to advanced search.`
+                    ? `No specimens found for &quot;${basicSearchQuery}&quot; (${basicSearchType === 'exact' ? 'exact match' : 'match any'}). Try different terms or switch to advanced search.`
                     : 'Try adjusting your search terms or filters.'
                   }
                 </p>
@@ -1365,7 +1360,7 @@ export default function Botany() {
             </div>
           ) : (
             <>
-              {searchData.page.map((plant: any) => (
+              {searchData.page.filter((plant: Doc<'botany'> | null | undefined): plant is Doc<'botany'> => !!plant).map((plant: Doc<'botany'>) => (
                 <BotanyCard 
                   key={plant._id} 
                   plant={plant} 
@@ -1408,27 +1403,27 @@ export default function Botany() {
   };
 
   // In Botany component, define handleRectangleComplete so it has access to setHasSearched
-  const handleRectangleComplete = (rectangle: google.maps.Rectangle) => {
-    if (rectangleRef.current) {
-      rectangleRef.current.setMap(null);
-      rectangleRef.current = null;
-    }
-    rectangleRef.current = rectangle;
-    setRectangleActive(true);
-    setDrawingMode(null); // Disable further drawing
-    // Save bounds
-    const bounds = rectangle.getBounds();
-    if (!bounds) return;
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    setAreaBounds({
-      north: ne.lat(),
-      south: sw.lat(),
-      east: ne.lng(),
-      west: sw.lng(),
-    });
-    setHasSearched(true);
-  };
+  // const handleRectangleComplete = (rectangle: google.maps.Rectangle) => {
+  //   if (rectangleRef.current) {
+  //     rectangleRef.current.setMap(null);
+  //     rectangleRef.current = null;
+  //   }
+  //   rectangleRef.current = rectangle;
+  //   setRectangleActive(true);
+  //   setDrawingMode(null); // Disable further drawing
+  //   // Save bounds
+  //   const bounds = rectangle.getBounds();
+  //   if (!bounds) return;
+  //   const ne = bounds.getNorthEast();
+  //   const sw = bounds.getSouthWest();
+  //   setAreaBounds({
+  //     north: ne.lat(),
+  //     south: sw.lat(),
+  //     east: ne.lng(),
+  //     west: sw.lng(),
+  //   });
+  //   setHasSearched(true);
+  // };
 
   const SORT_FIELDS = [
     { value: "scientificName-asc", label: "Scientific Name (A-Z)" },
