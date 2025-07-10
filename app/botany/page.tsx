@@ -1006,6 +1006,7 @@ export default function Botany() {
               {searchMode === 'basic' && basicSearchQuery && (
                 <span className="text-sm text-gray-500 ml-2">
                   for &quot;{basicSearchQuery}&quot; ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
+                  for &quot;{basicSearchQuery}&quot; ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
                 </span>
               )}
               {(hasValidImage || hasValidGeoCoords) && (
