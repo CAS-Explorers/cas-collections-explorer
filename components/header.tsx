@@ -22,7 +22,7 @@ export function Header() {
           variant="ghost"
           size="sm"
           className="gap-2"
-          onClick={() => router.back()}
+          onClick={handleBack}
           aria-label="Back"
         >
           <ArrowLeft className="h-4 w-4" />

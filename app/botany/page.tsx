@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import { Doc } from "@/convex/_generated/dataModel";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useQuery, useMutation } from "convex/react";
 import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
-import { extractImageUrl } from '@/lib/utils';
-import { useQuery as useConvexQuery } from "convex/react";
+
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import dynamic from 'next/dynamic';
 import L from 'leaflet';
@@ -115,17 +115,7 @@ const numericFields = [
 // Add this at the top of the file, outside any component
 
 
-// Update MapView props
-type MapViewProps = {
-  plants: any[],
-  selectArea: boolean,
-  areaBounds: [[number, number], [number, number]] | null,
-  setAreaBounds: (b: [[number, number], [number, number]] | null) => void,
-  rectangleRef: React.MutableRefObject<L.Rectangle | null>,
-  rectangleActive: boolean,
-  setRectangleActive: React.Dispatch<React.SetStateAction<boolean>>,
-  setHasSearched: React.Dispatch<React.SetStateAction<boolean>>,
-};
+
 
 // Dynamically import MapView with SSR disabled
 const MapView = dynamic(() => import('@/components/botany/MapView'), { ssr: false });
@@ -156,19 +146,18 @@ export default function Botany() {
   const [hasMapView, setHasMapView] = useState(false);
   // Remove selectArea from state and always enable area selection
   // const [selectArea, setSelectArea] = useState(false);
-  const selectArea = true;
+  
   const [areaBounds, setAreaBounds] = useState<[[number, number], [number, number]] | null>(null);
 
   // In Botany component, add these refs and state:
   const rectangleRef = useRef<L.Rectangle | null>(null);
-  const [rectangleActive, setRectangleActive] = useState(false);
-  const [drawingMode, setDrawingMode] = useState<any | null>(null);
+  
 
   const RESULTS_PER_PAGE = 30;
   const [currentPage, setCurrentPage] = useState(1);
 
   // Move getBasicSearchRules to the top of the component
-  const getBasicSearchRules = () => {
+  const getBasicSearchRules = useCallback(() => {
     if (!basicSearchQuery.trim()) return [];
     const terms = basicSearchQuery.trim().split(',').map((t: string) => t.trim()).filter((term: string) => term.length > 0);
     if (terms.length === 0) return [];
@@ -185,19 +174,18 @@ export default function Botany() {
         value: basicSearchQuery.trim()
       }];
     }
-  };
+  }, [basicSearchQuery, basicSearchType]);
 
   // Add area filter to search rules if area is selected
-  const latMin = areaBounds ? Math.min(areaBounds[0][0], areaBounds[1][0]) : undefined;
-  const latMax = areaBounds ? Math.max(areaBounds[0][0], areaBounds[1][0]) : undefined;
-  const lngMin = areaBounds ? Math.min(areaBounds[0][1], areaBounds[1][1]) : undefined;
-  const lngMax = areaBounds ? Math.max(areaBounds[0][1], areaBounds[1][1]) : undefined;
+  
 
   // Update area filter logic to use array format
-  const areaFilterRule = (areaBounds && areaBounds[0] && areaBounds[1]) ? [
-    { field: "latitude1", operator: "between", value: Math.min(areaBounds[0][0], areaBounds[1][0]), secondValue: Math.max(areaBounds[0][0], areaBounds[1][0]) },
-    { field: "longitude1", operator: "between", value: Math.min(areaBounds[0][1], areaBounds[1][1]), secondValue: Math.max(areaBounds[0][1], areaBounds[1][1]) }
-  ] : [];
+  const areaFilterRule = useMemo(() => {
+    return (areaBounds && areaBounds[0] && areaBounds[1]) ? [
+      { field: "latitude1", operator: "between", value: Math.min(areaBounds[0][0], areaBounds[1][0]), secondValue: Math.max(areaBounds[0][0], areaBounds[1][0]) },
+      { field: "longitude1", operator: "between", value: Math.min(areaBounds[0][1], areaBounds[1][1]), secondValue: Math.max(areaBounds[0][1], areaBounds[1][1]) }
+    ] : [];
+  }, [areaBounds]);
 
 
   const searchData = useQuery(api.botany.searchPlants, hasSearched ? {
@@ -444,7 +432,7 @@ export default function Botany() {
         sort,
       });
     }
-  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort), hasValidImage, hasValidGeoCoords]);
+  }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, searchRules, sort, hasValidImage, hasValidGeoCoords, areaBounds, areaFilterRule, getBasicSearchRules, startMaterializing]);
 
   // Add this after areaBounds is defined in the Botany component
   useEffect(() => {
@@ -460,21 +448,25 @@ export default function Botany() {
 
         <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
           <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Filter options always above the map */}
             {renderSearch()}
+            {/* Map appears below filter options if enabled */}
             {hasMapView && (
-              <MapView
-                plants={searchData?.page || []}
-                selectArea={true}
-                areaBounds={areaBounds}
-                setAreaBounds={setAreaBounds}
-                rectangleRef={rectangleRef}
-                rectangleActive={rectangleActive}
-                setRectangleActive={setRectangleActive}
-                setHasSearched={setHasSearched}
-              />
+              <div className="mt-8">
+                <MapView
+                  plants={(searchData?.page || []).filter((p): p is Doc<"botany"> => p != null)}
+                  selectArea={true}
+                  areaBounds={areaBounds}
+                  setAreaBounds={setAreaBounds}
+                  rectangleRef={rectangleRef}
+                  setHasSearched={setHasSearched}
+                />
+              </div>
             )}
-
-            {renderSearchResults()}
+            {/* Search results below map (or below filters if map is hidden) */}
+            <div className="mt-8">
+              {renderSearchResults()}
+            </div>
           </div>
         </div>
       </>
@@ -1013,7 +1005,7 @@ export default function Botany() {
             specimens
               {searchMode === 'basic' && basicSearchQuery && (
                 <span className="text-sm text-gray-500 ml-2">
-                  for "{basicSearchQuery}" ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
+                  for &quot;{basicSearchQuery}&quot; ({basicSearchType === 'exact' ? 'exact match' : 'match any'})
                 </span>
               )}
               {(hasValidImage || hasValidGeoCoords) && (
@@ -1116,7 +1108,7 @@ export default function Botany() {
             </div>
           ) : (
             <>
-              {searchData.page.map((plant: any) => (
+              {(searchData.page || []).filter((p): p is Doc<"botany"> => p != null).map((plant: Doc<"botany">) => (
                 <BotanyCard 
                   key={plant._id} 
                   plant={plant} 
@@ -1159,26 +1151,7 @@ export default function Botany() {
   };
 
   // In Botany component, define handleRectangleComplete so it has access to setHasSearched
-  const handleRectangleComplete = (rectangle: any) => {
-    if (rectangleRef.current) {
-      if (typeof rectangleRef.current.remove === 'function') {
-        rectangleRef.current.remove();
-      }
-      rectangleRef.current = null;
-    }
-    rectangleRef.current = rectangle;
-    setRectangleActive(true);
-    // Save bounds
-    const bounds = rectangle.getBounds();
-    if (!bounds) return;
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    setAreaBounds([
-      [sw.lat, sw.lng],
-      [ne.lat, ne.lng],
-    ]);
-    setHasSearched(true);
-  };
+  
 
   const SORT_FIELDS = [
     { value: "scientificName-asc", label: "Scientific Name (A-Z)" },
@@ -1262,7 +1235,7 @@ export default function Botany() {
     { value: "redactLocalityAcceptedTaxon-asc", label: "Redact Locality Accepted Taxon (A-Z)" },
     { value: "redactLocalityAcceptedTaxon-desc", label: "Redact Locality Accepted Taxon (Z-A)" },
   ];
-  const SORTED_SORT_FIELDS = [...SORT_FIELDS].sort((a, b) => a.label.localeCompare(b.label));
+  
 
   return render();
 }

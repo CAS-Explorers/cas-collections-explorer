@@ -6,19 +6,23 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import { extractImageUrl } from '@/lib/utils';
-import { createPortal } from 'react-dom';
+import { Doc } from "@/convex/_generated/dataModel";
+
 import { useMap } from 'react-leaflet';
-import { Button } from '@/components/ui/button';
+import Image from 'next/image';
+
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
 
 // Define the MapViewProps type
 export type MapViewProps = {
-  plants: any[],
+  plants: (Doc<"botany"> | null | undefined)[],
   selectArea: boolean,
   areaBounds: [[number, number], [number, number]] | null,
   setAreaBounds: (b: [[number, number], [number, number]] | null) => void,
   rectangleRef: React.MutableRefObject<L.Rectangle | null>,
-  rectangleActive: boolean,
-  setRectangleActive: React.Dispatch<React.SetStateAction<boolean>>,
   setHasSearched: React.Dispatch<React.SetStateAction<boolean>>,
 };
 
@@ -26,6 +30,7 @@ export type MapViewProps = {
 function DrawAreaControl({ areaBounds, onRemoveArea }: { areaBounds: [[number, number], [number, number]] | null, onRemoveArea: () => void }) {
   const map = useMap();
   const handleDrawArea = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const drawControl = new L.Draw.Rectangle(map as any, {
       shapeOptions: { color: '#000', weight: 3, fillOpacity: 0 }
     });
@@ -56,31 +61,37 @@ function DrawAreaControl({ areaBounds, onRemoveArea }: { areaBounds: [[number, n
   );
 }
 
-export default function MapView({ plants, selectArea, areaBounds, setAreaBounds, rectangleRef, rectangleActive, setRectangleActive, setHasSearched }: MapViewProps) {
+export default function MapView({ plants, selectArea, areaBounds, setAreaBounds, rectangleRef, setHasSearched }: MapViewProps) {
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const mapRef = useRef<L.Map>(null);
+
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (mapRef.current && (mapRef.current as any)._leaflet_id && !mapInstance) {
+      setMapInstance(mapRef.current);
+    }
+  }, [mapRef, mapInstance]);
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-      iconUrl: require('leaflet/dist/images/marker-icon.png'),
-      shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+      iconRetinaUrl: markerIcon2x,
+      iconUrl: markerIcon,
+      shadowUrl: markerShadow,
     });
   }, []);
 
-  const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0]);
-  const [mapZoom, setMapZoom] = useState(3);
-  const [selectedPlant, setSelectedPlant] = useState<any | null>(null);
-  const featureGroupRef = useRef<any>(null);
+  const [mapCenter] = useState<[number, number]>([20, 0]);
+  const [mapZoom] = useState(3);
+  const [selectedPlant, setSelectedPlant] = useState<Doc<"botany"> | null>(null);
+  const featureGroupRef = useRef<L.FeatureGroup>(null);
   const PLACEHOLDER_IMAGE = "/cal_academy.png";
-  const mapRef = useRef<any>(null);
-  const [mapInstance, setMapInstance] = useState<any>(null);
-  useEffect(() => {
-    if (mapRef.current && mapRef.current._leaflet_id && !mapInstance) {
-      setMapInstance(mapRef.current);
-    }
-  }, [mapRef.current]);
+  
 
   // Markers
-  const markers = (plants as any[]).filter((p: any) =>
+  const validPlants = (plants as Doc<"botany">[]).filter((p): p is Doc<"botany"> => p != null);
+  const markers = validPlants.filter((p: Doc<"botany">) =>
     typeof p.latitude1 === 'number' && typeof p.longitude1 === 'number' &&
     !isNaN(p.latitude1) && !isNaN(p.longitude1)
   );
@@ -96,16 +107,15 @@ export default function MapView({ plants, selectArea, areaBounds, setAreaBounds,
   });
 
   // Handle rectangle creation
-  const onCreated = (e: any) => {
+  const onCreated = (e: L.DrawEvents.Created) => {
     if (e.layerType === 'rectangle') {
-      const bounds = e.layer.getBounds();
+      const bounds = (e.layer as L.Rectangle).getBounds();
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
       setAreaBounds([
         [sw.lat, sw.lng],
         [ne.lat, ne.lng],
       ]);
-      setRectangleActive(true);
       setHasSearched(true);
     }
   };
@@ -113,14 +123,13 @@ export default function MapView({ plants, selectArea, areaBounds, setAreaBounds,
   // Handle rectangle removal
   const onDeleted = () => {
     setAreaBounds(null);
-    setRectangleActive(false);
     setHasSearched(false);
   };
 
   // Remove all areas handler
   const handleRemoveArea = () => {
     setAreaBounds(null);
-    setRectangleActive(false);
+    setHasSearched(false);
     // Remove rectangles from map if needed
     if (rectangleRef.current) {
       rectangleRef.current.remove();
@@ -166,10 +175,10 @@ export default function MapView({ plants, selectArea, areaBounds, setAreaBounds,
           {/* Rectangle is drawn if areaBounds is set */}
           {areaBounds && <Rectangle bounds={areaBounds} pathOptions={{ color: '#000', weight: 3, fillOpacity: 0 }} />}
         </FeatureGroup>
-        {markers.map((plant: any, i: number) => (
+        {markers.map((plant: Doc<"botany">, i: number) => (
           <Marker
             key={plant._id || i}
-            position={[plant.latitude1, plant.longitude1]}
+            position={[Number(plant.latitude1), Number(plant.longitude1)]}
             icon={greenPin}
             eventHandlers={{
               click: () => setSelectedPlant(plant),
@@ -178,14 +187,16 @@ export default function MapView({ plants, selectArea, areaBounds, setAreaBounds,
             <Tooltip direction="top" offset={[0, -30]}>{plant.scientificName}</Tooltip>
             {selectedPlant && selectedPlant._id === plant._id && (
               <Popup
-                position={[plant.latitude1, plant.longitude1]}
+                position={[Number(plant.latitude1), Number(plant.longitude1)]}
                 eventHandlers={{ remove: () => setSelectedPlant(null) }}
               >
                 <div className="w-80 p-0 bg-white" style={{margin: 0, border: 'none', borderRadius: 0, boxShadow: 'none'}}>
                   <div className="relative" style={{padding: 0, margin: 0}}>
-                    <img
+                    <Image
                       src={extractImageUrl(selectedPlant.img, '500') || PLACEHOLDER_IMAGE}
                       alt={selectedPlant.scientificName}
+                      width={500}
+                      height={375}
                       className="object-cover"
                       style={{ width: '100%', height: 'auto', aspectRatio: '4/3', display: 'block', margin: 0, padding: 0, borderRadius: 0 }}
                     />
