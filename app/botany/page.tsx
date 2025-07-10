@@ -11,6 +11,7 @@ import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
 import { GoogleMap, Marker, useJsApiLoader, InfoWindow, OverlayView, DrawingManager, Rectangle } from '@react-google-maps/api';
 import { extractImageUrl } from '@/lib/utils';
 import { useQuery as useConvexQuery } from "convex/react";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -367,7 +368,9 @@ export default function Botany() {
   const [hasValidImage, setHasValidImage] = useState(false);
   const [hasValidGeoCoords, setHasValidGeoCoords] = useState(false);
   const [hasMapView, setHasMapView] = useState(false);
-  const [selectArea, setSelectArea] = useState(false);
+  // Remove selectArea from state and always enable area selection
+  // const [selectArea, setSelectArea] = useState(false);
+  const selectArea = true;
   const [areaBounds, setAreaBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
 
   // In Botany component, add these refs and state:
@@ -410,7 +413,7 @@ export default function Botany() {
   ] : [];
 
 
-  const searchData = useQuery(api.botany.searchPlants, hasSearched && (!selectArea || (selectArea && areaBounds)) ? {
+  const searchData = useQuery(api.botany.searchPlants, hasSearched ? {
     rules: [
       ...(searchMode === 'basic' ? getBasicSearchRules() : searchRules.map(rule => {
         if (rule.numericFilter) {
@@ -438,7 +441,11 @@ export default function Botany() {
       })),
       ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
       ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
-      ...areaFilterRule
+      // Only add area filter if areaBounds is set
+      ...(areaBounds ? [
+        { field: "latitude1", operator: "between", value: Math.min(areaBounds.south, areaBounds.north), secondValue: Math.max(areaBounds.south, areaBounds.north) },
+        { field: "longitude1", operator: "between", value: Math.min(areaBounds.west, areaBounds.east), secondValue: Math.max(areaBounds.west, areaBounds.east) }
+      ] : [])
     ],
     sort,
     pagination: { pageNumber: currentPage, pageSize: RESULTS_PER_PAGE },
@@ -476,7 +483,11 @@ export default function Botany() {
       ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
       // Add geocoordinates filter if checked
       ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
-      ...areaFilterRule
+      // Only add area filter if areaBounds is set
+      ...(areaBounds ? [
+        { field: "latitude1", operator: "between", value: Math.min(areaBounds.south, areaBounds.north), secondValue: Math.max(areaBounds.south, areaBounds.north) },
+        { field: "longitude1", operator: "between", value: Math.min(areaBounds.west, areaBounds.east), secondValue: Math.max(areaBounds.west, areaBounds.east) }
+      ] : [])
     ],
   } : "skip");
 
@@ -495,6 +506,7 @@ export default function Botany() {
   // Handle URL search params
   useEffect(() => {
     const query = searchParams.get("query");
+    const q = searchParams.get("q");
     if (query) {
       try {
         const parsed = JSON.parse(decodeURIComponent(query));
@@ -508,6 +520,13 @@ export default function Botany() {
       } catch {
         handleSearch();
       }
+    } else if (q) {
+      setSearchMode('basic');
+      setBasicSearchQuery(q);
+      setSort({ field: "", direction: "asc" });
+      setCurrentPage(1);
+      setHasSearched(true);
+      handleSearch();
     }
   }, [searchParams, handleSearch]);
 
@@ -651,10 +670,10 @@ export default function Botany() {
         <div className="w-full min-h-screen bg-gradient-to-b from-white to-gray-50/50">
           <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {renderSearch()}
-            {(hasMapView || selectArea) && (
+            {hasMapView && (
               <MapView
                 plants={searchData?.page || []}
-                selectArea={selectArea}
+                selectArea={true}
                 areaBounds={areaBounds}
                 setAreaBounds={setAreaBounds}
                 handleRectangleComplete={handleRectangleComplete}
@@ -763,87 +782,6 @@ export default function Botany() {
               )}
             </Button>
           </div>
-          
-          {/* Filter Checkboxes */}
-          <div className="flex items-center gap-6 justify-center pt-4 border-t border-gray-200">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={hasValidImage}
-                onChange={(e) => {
-                  setHasValidImage(e.target.checked);
-                  setHasSearched(false);
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Has Valid Image</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Only show plants with image attachments (UUID-based images)
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={hasValidGeoCoords}
-                onChange={(e) => {
-                  setHasValidGeoCoords(e.target.checked);
-                  setHasSearched(false);
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Has Geo Coordinates</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                Only show plants with valid latitude and longitude coordinates
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-              </div>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={hasMapView}
-                onChange={(e) => {
-                  setHasMapView(e.target.checked);
-                  // If enabling Map View, also enable Has Geo Coordinates
-                  if (e.target.checked && !hasValidGeoCoords) {
-                    setHasValidGeoCoords(true);
-                  }
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Map View</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                Show results on the map (UI only)
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-              </div>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={selectArea}
-                onChange={(e) => {
-                  setSelectArea(e.target.checked);
-                  setAreaBounds(null);
-                  setHasSearched(false);
-                  // If enabling Select Area, also enable Map View and Has Geo Coordinates
-                  if (e.target.checked) {
-                    setHasMapView(true);
-                    setHasValidGeoCoords(true);
-                    // If areaBounds already exists, trigger search
-                    if (areaBounds) {
-                      setHasSearched(true);
-                    }
-                  }
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Select Area</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Draw a rectangle on the map to filter results by area
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
-            </label>
-          </div>
         </div>
       );
     };
@@ -915,15 +853,22 @@ export default function Botany() {
         <div className="flex flex-col gap-3 w-full">
           {searchRules.map((rule) => (
             <div key={rule.id} className="flex gap-2 items-center">
-              <select
-                value={rule.index}
-                onChange={(e) => handleRuleChange(rule.id, "index", e.target.value)}
-                className="px-3 py-2 rounded-lg border border-green-300 bg-white text-sm"
-              >
-                {SORTED_SEARCH_FIELDS.map(field => (
-                  <option key={field.value} value={field.value}>{field.label}</option>
-                ))}
-              </select>
+              <Select value={rule.index} onValueChange={(value) => handleRuleChange(rule.id, "index", value)}>
+                <SelectTrigger className="w-56 rounded-md border-2 border-gray-400 shadow bg-white text-base focus:ring-2 focus:ring-green-500 focus:border-gray-600 transition">
+                  <SelectValue placeholder="Select field" />
+                </SelectTrigger>
+                <SelectContent className="rounded-md border-2 border-gray-400 shadow-lg bg-gray-50 text-base">
+                  {SORTED_SEARCH_FIELDS.map((field, idx) => (
+                    <SelectItem
+                      key={field.value}
+                      value={field.value}
+                      className={`px-4 py-2 text-base font-medium transition-colors hover:bg-gray-100 focus:bg-gray-100 cursor-pointer ${idx !== SORTED_SEARCH_FIELDS.length - 1 ? 'border-b border-gray-200' : ''}`}
+                    >
+                      {field.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               {/* Show numeric filter options for numeric fields */}
               {numericFields.includes(rule.index) && (
@@ -1135,8 +1080,7 @@ export default function Botany() {
                 checked={hasMapView}
                 onChange={(e) => {
                   setHasMapView(e.target.checked);
-                  // If enabling Map View, also enable Has Geo Coordinates
-                  if (e.target.checked && !hasValidGeoCoords) {
+                  if (e.target.checked) {
                     setHasValidGeoCoords(true);
                   }
                 }}
@@ -1147,32 +1091,6 @@ export default function Botany() {
                 Show results on the map (UI only)
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
               </div>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
-              <input
-                type="checkbox"
-                checked={selectArea}
-                onChange={(e) => {
-                  setSelectArea(e.target.checked);
-                  setAreaBounds(null);
-                  setHasSearched(false);
-                  // If enabling Select Area, also enable Map View and Has Geo Coordinates
-                  if (e.target.checked) {
-                    setHasMapView(true);
-                    setHasValidGeoCoords(true);
-                    // If areaBounds already exists, trigger search
-                    if (areaBounds) {
-                      setHasSearched(true);
-                    }
-                  }
-                }}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span>Select Area</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  Draw a rectangle on the map to filter results by area
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
             </label>
           </div>
         </div>
@@ -1225,20 +1143,6 @@ export default function Botany() {
       );
     }
 
-    // If selectArea is enabled but no area is selected, prompt the user
-    if (selectArea && !areaBounds) {
-      return (
-        <div className="w-full flex justify-center py-16">
-          <div className="text-center space-y-4">
-            <div className="text-gray-500">
-              <p className="text-lg">Select an area on the map</p>
-              <p className="text-sm">Draw and adjust the rectangle to filter results by area.</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     // Show loading state when search data is being fetched or when manually loading
     if (isLoading) {
       return (
@@ -1282,28 +1186,34 @@ export default function Botany() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <label htmlFor="sort-by" className="text-sm font-medium text-gray-600">Sort by:</label>
-                <select
-                  id="sort-by"
-                  value={sort.field === "" || sort.field === "-" ? "-asc" : `${sort.field}-${sort.direction}`}
-                  onChange={(e) => {
-                    const [field, direction] = e.target.value.split('-');
-                    setIsLoading(true);
-                    setSort({ 
-                      field: field === "-" ? "" : field, 
-                      direction: direction as 'asc' | 'desc' 
-                    });
-                    // Reset pagination to first page when sort changes
-                    setCurrentPage(1);
-                    // Only show brief loading for sorting, don't artificially delay
-                    setTimeout(() => setIsLoading(false), 200);
-                  }}
-                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
-                >
-                  <option value="-asc">Unsorted</option>
-                  {SORTED_SORT_FIELDS.map((field: { value: string; label: string }) => (
-                    <option key={field.value} value={field.value}>{field.label}</option>
-                  ))}
-                </select>
+                <Select value={sort.field === "" || sort.field === "-" ? "-asc" : `${sort.field}-${sort.direction}`}
+  onValueChange={(value) => {
+    const [field, direction] = value.split('-');
+    setIsLoading(true);
+    setSort({
+      field: field === "-" ? "" : field,
+      direction: direction as 'asc' | 'desc'
+    });
+    setCurrentPage(1);
+    setTimeout(() => setIsLoading(false), 200);
+  }}
+>
+  <SelectTrigger className="w-56 rounded-md border-2 border-gray-400 shadow bg-white text-base focus:ring-2 focus:ring-green-500 focus:border-gray-600 transition">
+    <SelectValue placeholder="Sort by" />
+  </SelectTrigger>
+  <SelectContent className="rounded-md border-2 border-gray-400 shadow-lg bg-gray-50 text-base">
+    <SelectItem value="-asc" className="px-4 py-2 text-base font-medium transition-colors hover:bg-gray-100 focus:bg-gray-100 cursor-pointer border-b border-gray-200">Unsorted</SelectItem>
+    {SORT_FIELDS.map((field, idx) => (
+      <SelectItem
+        key={field.value}
+        value={field.value}
+        className={`px-4 py-2 text-base font-medium transition-colors hover:bg-gray-100 focus:bg-gray-100 cursor-pointer ${idx !== SORT_FIELDS.length - 1 ? 'border-b border-gray-200' : ''}`}
+      >
+        {field.label}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
               </div>
               <div className="flex items-center gap-2">
                 <Button onClick={() => handlePageChange(1)} disabled={currentPage === 1} aria-label="First page">
