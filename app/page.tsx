@@ -9,7 +9,6 @@ import { useRouter } from 'next/navigation';
 import BackgroundImage from './components/BackgroundImage';
 import Image from 'next/image';
 import Link from 'next/link';
-import Image from 'next/image';
 
 const collections = [
   { title: "Botany", href: "/botany" },
