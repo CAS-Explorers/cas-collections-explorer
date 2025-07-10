@@ -8,10 +8,11 @@ import { api } from "@/convex/_generated/api";
 import { BotanyCard } from "@/components/botany/botany-card";
 import { useQuery, useMutation } from "convex/react";
 import { LoadingSpinner, LoadingCard } from "@/components/ui/loading-spinner";
-import { GoogleMap, Marker, useJsApiLoader, InfoWindow, OverlayView, DrawingManager, Rectangle } from '@react-google-maps/api';
 import { extractImageUrl } from '@/lib/utils';
 import { useQuery as useConvexQuery } from "convex/react";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import dynamic from 'next/dynamic';
+import L from 'leaflet';
 
 // Types for numeric comparisons
 type NumericFilterType = "=" | "before" | "after" | "between";
@@ -112,240 +113,25 @@ const numericFields = [
 ];
 
 // Add this at the top of the file, outside any component
-const GOOGLE_MAP_LIBRARIES = ['drawing'] as any;
+
 
 // Update MapView props
 type MapViewProps = {
   plants: any[],
   selectArea: boolean,
-  areaBounds: google.maps.LatLngBoundsLiteral | null,
-  setAreaBounds: (b: google.maps.LatLngBoundsLiteral | null) => void,
-  handleRectangleComplete: (rectangle: google.maps.Rectangle) => void,
-  rectangleRef: React.MutableRefObject<google.maps.Rectangle | null>,
+  areaBounds: [[number, number], [number, number]] | null,
+  setAreaBounds: (b: [[number, number], [number, number]] | null) => void,
+  rectangleRef: React.MutableRefObject<L.Rectangle | null>,
   rectangleActive: boolean,
   setRectangleActive: React.Dispatch<React.SetStateAction<boolean>>,
-  drawingMode: google.maps.drawing.OverlayType | null,
-  setDrawingMode: React.Dispatch<React.SetStateAction<google.maps.drawing.OverlayType | null>>,
   setHasSearched: React.Dispatch<React.SetStateAction<boolean>>,
 };
 
-// MapView component for displaying pins
-function MapView({ plants, selectArea, areaBounds, setAreaBounds, handleRectangleComplete, rectangleRef, rectangleActive, setRectangleActive, drawingMode, setDrawingMode, setHasSearched }: MapViewProps) {
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries: GOOGLE_MAP_LIBRARIES,
-  });
-  const [showDrawButton, setShowDrawButton] = useState(false);
-  const [mapInteractive, setMapInteractive] = useState(true);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 20, lng: 0 });
-  const [mapZoom, setMapZoom] = useState(3);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markers = plants.filter(p =>
-    typeof p.latitude1 === 'number' && typeof p.longitude1 === 'number' &&
-    !isNaN(p.latitude1) && !isNaN(p.longitude1)
-  );
-  const [selectedPlant, setSelectedPlant] = useState<any | null>(null);
-  const PLACEHOLDER_IMAGE = "/cal_academy.png";
-  const [forceHideRectangle, setForceHideRectangle] = useState(false);
-  const rectanglesRef = useRef<google.maps.Rectangle[]>([]);
-  const [drawnRectangle, setDrawnRectangle] = useState<google.maps.Rectangle | null>(null);
-  const allDrawnRectangles = useRef<google.maps.Rectangle[]>([]);
-  const [drawAreaActive, setDrawAreaActive] = useState(false);
+// Dynamically import MapView with SSR disabled
+const MapView = dynamic(() => import('@/components/botany/MapView'), { ssr: false });
 
-  // Show DrawingManager if selectArea is true and no rectangle exists
-  useEffect(() => {
-    if (!selectArea || areaBounds) {
-      setDrawingMode(null);
-    }
-  }, [selectArea, areaBounds]);
-
-  // Remove rectangle when areaBounds is cleared
-  useEffect(() => {
-    if (!areaBounds && rectangleRef.current) {
-      rectangleRef.current.setMap(null);
-      rectangleRef.current = null;
-      setRectangleActive(false);
-    }
-  }, [areaBounds]);
-
-  // Remove rectangle on unmount
-  useEffect(() => {
-    return () => {
-      if (rectangleRef.current) {
-        rectangleRef.current.setMap(null);
-        rectangleRef.current = null;
-      }
-      allDrawnRectangles.current.forEach(rect => {
-        if (rect) rect.setMap(null);
-      });
-      allDrawnRectangles.current = [];
-    };
-  }, []);
-
-  // Handler for rectanglecomplete
-  // This function is now passed as a prop to MapView
-
-  // Remove Area button handler - moved inside MapView component
-  const handleRemoveArea = () => {
-    allDrawnRectangles.current.forEach(rect => {
-      rect.setEditable(false);
-      rect.setDraggable(false);
-      rect.setMap(null);
-    });
-    allDrawnRectangles.current = [];
-    setDrawnRectangle(null);
-    rectangleRef.current = null;
-    setRectangleActive(false);
-    setAreaBounds(null);
-    setHasSearched(false);
-    setDrawingMode(null);
-    setForceHideRectangle(true);
-  };
-
-  // Add effect to reset forceHideRectangle
-  useEffect(() => {
-    if (forceHideRectangle) {
-      setTimeout(() => setForceHideRectangle(false), 0);
-    }
-  }, [forceHideRectangle]);
-
-  useEffect(() => {
-    if (areaBounds) setDrawAreaActive(false);
-  }, [areaBounds]);
-
-  if (!isLoaded) return <div className="w-full h-[500px] flex items-center justify-center">Loading map...</div>;
-  return (
-    <div className={`w-full h-[500px] my-8 rounded-lg overflow-hidden border relative ${drawAreaActive ? 'ring-4 ring-green-400' : ''}`}>
-      <GoogleMap
-        mapContainerStyle={{ width: '100%', height: '100%' }}
-        center={mapCenter}
-        zoom={mapZoom}
-        onLoad={map => { mapRef.current = map; }}
-        onIdle={() => {
-          if (mapRef.current) {
-            const c = mapRef.current.getCenter();
-            const z = mapRef.current.getZoom();
-            if (c) setMapCenter({ lat: c.lat(), lng: c.lng() });
-            if (z) setMapZoom(z);
-          }
-        }}
-        options={{
-          draggable: true,
-          scrollwheel: true,
-          disableDoubleClickZoom: false,
-          gestureHandling: 'auto',
-          zoomControl: true,
-        }}
-      >
-        {markers.map((plant, i) => (
-          <Marker
-            key={plant._id || i}
-            position={{ lat: plant.latitude1, lng: plant.longitude1 }}
-            title={plant.scientificName || ''}
-            onClick={() => setSelectedPlant(plant)}
-          />
-        ))}
-        {selectedPlant && (
-          <OverlayView
-            position={{ lat: selectedPlant.latitude1, lng: selectedPlant.longitude1 }}
-            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-          >
-            <div className="w-64 bg-white rounded-lg shadow-xl border border-gray-200" style={{padding: 0, marginBottom: 16}}>
-              <div className="relative" style={{padding: 0, margin: 0}}>
-                <img
-                  src={extractImageUrl(selectedPlant.img, "500") || PLACEHOLDER_IMAGE}
-                  alt={selectedPlant.scientificName}
-                  className="object-cover"
-                  style={{ width: '100%', height: 'auto', aspectRatio: '4/3', display: 'block', borderRadius: '0.5rem 0.5rem 0 0', margin: 0, padding: 0 }}
-                />
-                <button
-                  onClick={() => setSelectedPlant(null)}
-                  className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded-full p-1 shadow-md border border-gray-300 z-10"
-                  aria-label="Close"
-                  style={{ lineHeight: 0 }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="font-semibold text-green-800 mb-1 mt-2 px-4">{selectedPlant.scientificName}</div>
-              <div className="text-xs text-gray-600 mb-2 px-4">{selectedPlant.family}</div>
-              <a
-                href={`/botany/${selectedPlant._id}`}
-                className="text-green-700 underline text-sm hover:text-green-900 px-4 pb-4 inline-block"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View Details
-              </a>
-            </div>
-          </OverlayView>
-        )}
-        {/* DrawingManager for area selection */}
-        {selectArea && !areaBounds && (
-          <>
-            <button
-              onClick={() => {
-                setDrawingMode(window.google?.maps?.drawing?.OverlayType.RECTANGLE || 'rectangle');
-                setDrawAreaActive(true);
-              }}
-              className={`absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-700 text-white px-6 py-2 rounded shadow-lg z-20 hover:bg-green-800 ${drawAreaActive ? 'ring-4 ring-green-400' : ''}`}
-            >
-              Draw Area
-            </button>
-            <DrawingManager
-              drawingMode={drawingMode}
-              onRectangleComplete={rect => {
-                // Remove all previous rectangles (single-box mode)
-                allDrawnRectangles.current.forEach(r => r.setMap(null));
-                allDrawnRectangles.current = [rect];
-                setDrawnRectangle(rect);
-                rectangleRef.current = rect;
-                setRectangleActive(true);
-                setDrawingMode(null);
-                // Save bounds
-                const bounds = rect.getBounds();
-                if (!bounds) return;
-                const ne = bounds.getNorthEast();
-                const sw = bounds.getSouthWest();
-                setAreaBounds({
-                  north: ne.lat(),
-                  south: sw.lat(),
-                  east: ne.lng(),
-                  west: sw.lng(),
-                });
-                setHasSearched(true);
-              }}
-              options={{
-                drawingControl: false,
-                rectangleOptions: {
-                  draggable: true,
-                  editable: true,
-                  strokeColor: '#000',
-                  fillColor: '#000',
-                  fillOpacity: 0,
-                  strokeOpacity: 1.0,
-                  strokeWeight: 3,
-                },
-              }}
-            />
-          </>
-        )}
-        {/* (Do not render any <Rectangle /> React component) */}
-      </GoogleMap>
-      {/* Remove Area button */}
-      {selectArea && areaBounds && rectangleActive && (
-        <button
-          onClick={handleRemoveArea}
-          className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-20 hover:bg-red-700"
-        >
-          Remove Area
-        </button>
-      )}
-    </div>
-  );
-}
+// REMOVE the local MapView component definition entirely from this file.
+// Only use the dynamically imported MapView from '@/components/botany/MapView'.
 
 export default function Botany() {
   const searchParams = useSearchParams();
@@ -371,12 +157,12 @@ export default function Botany() {
   // Remove selectArea from state and always enable area selection
   // const [selectArea, setSelectArea] = useState(false);
   const selectArea = true;
-  const [areaBounds, setAreaBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
+  const [areaBounds, setAreaBounds] = useState<[[number, number], [number, number]] | null>(null);
 
   // In Botany component, add these refs and state:
-  const rectangleRef = useRef<google.maps.Rectangle | null>(null);
+  const rectangleRef = useRef<L.Rectangle | null>(null);
   const [rectangleActive, setRectangleActive] = useState(false);
-  const [drawingMode, setDrawingMode] = useState<google.maps.drawing.OverlayType | null>(null);
+  const [drawingMode, setDrawingMode] = useState<any | null>(null);
 
   const RESULTS_PER_PAGE = 30;
   const [currentPage, setCurrentPage] = useState(1);
@@ -402,14 +188,15 @@ export default function Botany() {
   };
 
   // Add area filter to search rules if area is selected
-  const latMin = areaBounds ? Math.min(areaBounds.south, areaBounds.north) : undefined;
-  const latMax = areaBounds ? Math.max(areaBounds.south, areaBounds.north) : undefined;
-  const lngMin = areaBounds ? Math.min(areaBounds.west, areaBounds.east) : undefined;
-  const lngMax = areaBounds ? Math.max(areaBounds.west, areaBounds.east) : undefined;
+  const latMin = areaBounds ? Math.min(areaBounds[0][0], areaBounds[1][0]) : undefined;
+  const latMax = areaBounds ? Math.max(areaBounds[0][0], areaBounds[1][0]) : undefined;
+  const lngMin = areaBounds ? Math.min(areaBounds[0][1], areaBounds[1][1]) : undefined;
+  const lngMax = areaBounds ? Math.max(areaBounds[0][1], areaBounds[1][1]) : undefined;
 
-  const areaFilterRule = (latMin !== undefined && latMax !== undefined && lngMin !== undefined && lngMax !== undefined) ? [
-    { field: "latitude1", operator: "between", value: latMin ?? 0, secondValue: latMax ?? 0 },
-    { field: "longitude1", operator: "between", value: lngMin ?? 0, secondValue: lngMax ?? 0 }
+  // Update area filter logic to use array format
+  const areaFilterRule = (areaBounds && areaBounds[0] && areaBounds[1]) ? [
+    { field: "latitude1", operator: "between", value: Math.min(areaBounds[0][0], areaBounds[1][0]), secondValue: Math.max(areaBounds[0][0], areaBounds[1][0]) },
+    { field: "longitude1", operator: "between", value: Math.min(areaBounds[0][1], areaBounds[1][1]), secondValue: Math.max(areaBounds[0][1], areaBounds[1][1]) }
   ] : [];
 
 
@@ -442,9 +229,9 @@ export default function Botany() {
       ...(hasValidImage ? [{ field: "img", operator: "has_valid_image", value: "true" }] : []),
       ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
       // Only add area filter if areaBounds is set
-      ...(areaBounds ? [
-        { field: "latitude1", operator: "between", value: Math.min(areaBounds.south, areaBounds.north), secondValue: Math.max(areaBounds.south, areaBounds.north) },
-        { field: "longitude1", operator: "between", value: Math.min(areaBounds.west, areaBounds.east), secondValue: Math.max(areaBounds.west, areaBounds.east) }
+      ...(areaBounds && areaBounds[0] && areaBounds[1] ? [
+        { field: "latitude1", operator: "between", value: Math.min(areaBounds[0][0], areaBounds[1][0]), secondValue: Math.max(areaBounds[0][0], areaBounds[1][0]) },
+        { field: "longitude1", operator: "between", value: Math.min(areaBounds[0][1], areaBounds[1][1]), secondValue: Math.max(areaBounds[0][1], areaBounds[1][1]) }
       ] : [])
     ],
     sort,
@@ -484,9 +271,9 @@ export default function Botany() {
       // Add geocoordinates filter if checked
       ...((hasValidGeoCoords && !areaBounds) ? [{ field: "latitude1", operator: "has_valid_coords", value: "true" }] : []),
       // Only add area filter if areaBounds is set
-      ...(areaBounds ? [
-        { field: "latitude1", operator: "between", value: Math.min(areaBounds.south, areaBounds.north), secondValue: Math.max(areaBounds.south, areaBounds.north) },
-        { field: "longitude1", operator: "between", value: Math.min(areaBounds.west, areaBounds.east), secondValue: Math.max(areaBounds.west, areaBounds.east) }
+      ...(areaBounds && areaBounds[0] && areaBounds[1] ? [
+        { field: "latitude1", operator: "between", value: Math.min(areaBounds[0][0], areaBounds[1][0]), secondValue: Math.max(areaBounds[0][0], areaBounds[1][0]) },
+        { field: "longitude1", operator: "between", value: Math.min(areaBounds[0][1], areaBounds[1][1]), secondValue: Math.max(areaBounds[0][1], areaBounds[1][1]) }
       ] : [])
     ],
   } : "skip");
@@ -659,9 +446,13 @@ export default function Botany() {
     }
   }, [hasSearched, searchMode, basicSearchQuery, basicSearchType, JSON.stringify(searchRules), JSON.stringify(sort), hasValidImage, hasValidGeoCoords]);
 
-
-
-  // REMOVE the useEffect that triggers setHasSearched(true) on [areaBounds, selectArea]
+  // Add this after areaBounds is defined in the Botany component
+  useEffect(() => {
+    if (areaBounds) {
+      setHasSearched(true);
+      setCurrentPage(1);
+    }
+  }, [areaBounds]);
 
   const render = () => {
     return (
@@ -676,12 +467,9 @@ export default function Botany() {
                 selectArea={true}
                 areaBounds={areaBounds}
                 setAreaBounds={setAreaBounds}
-                handleRectangleComplete={handleRectangleComplete}
                 rectangleRef={rectangleRef}
                 rectangleActive={rectangleActive}
                 setRectangleActive={setRectangleActive}
-                drawingMode={drawingMode}
-                setDrawingMode={setDrawingMode}
                 setHasSearched={setHasSearched}
               />
             )}
@@ -782,6 +570,59 @@ export default function Botany() {
               )}
             </Button>
           </div>
+          {/* Filter Checkboxes for Basic Search */}
+          <div className="flex items-center gap-6 justify-center pt-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasValidImage}
+                onChange={(e) => {
+                  setHasValidImage(e.target.checked);
+                  setHasSearched(false);
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Has Valid Image</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Only show plants with image attachments (UUID-based images)
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasValidGeoCoords}
+                onChange={(e) => {
+                  setHasValidGeoCoords(e.target.checked);
+                  setHasSearched(false);
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Has Geo Coordinates</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Only show plants with valid latitude and longitude coordinates
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 group relative">
+              <input
+                type="checkbox"
+                checked={hasMapView}
+                onChange={(e) => {
+                  setHasMapView(e.target.checked);
+                  if (e.target.checked) {
+                    setHasValidGeoCoords(true);
+                  }
+                }}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span>Map View</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Show results on the map (UI only)
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+              </div>
+            </label>
+          </div>
         </div>
       );
     };
@@ -866,7 +707,7 @@ export default function Botany() {
                     >
                       {field.label}
                     </SelectItem>
-                  ))}
+                ))}
                 </SelectContent>
               </Select>
 
@@ -1189,14 +1030,14 @@ export default function Botany() {
                 <Select value={sort.field === "" || sort.field === "-" ? "-asc" : `${sort.field}-${sort.direction}`}
   onValueChange={(value) => {
     const [field, direction] = value.split('-');
-    setIsLoading(true);
-    setSort({
-      field: field === "-" ? "" : field,
-      direction: direction as 'asc' | 'desc'
-    });
-    setCurrentPage(1);
-    setTimeout(() => setIsLoading(false), 200);
-  }}
+                    setIsLoading(true);
+                    setSort({ 
+                      field: field === "-" ? "" : field, 
+                      direction: direction as 'asc' | 'desc' 
+                    });
+                    setCurrentPage(1);
+                    setTimeout(() => setIsLoading(false), 200);
+                  }}
 >
   <SelectTrigger className="w-56 rounded-md border-2 border-gray-400 shadow bg-white text-base focus:ring-2 focus:ring-green-500 focus:border-gray-600 transition">
     <SelectValue placeholder="Sort by" />
@@ -1211,7 +1052,7 @@ export default function Botany() {
       >
         {field.label}
       </SelectItem>
-    ))}
+                  ))}
   </SelectContent>
 </Select>
               </div>
@@ -1318,25 +1159,24 @@ export default function Botany() {
   };
 
   // In Botany component, define handleRectangleComplete so it has access to setHasSearched
-  const handleRectangleComplete = (rectangle: google.maps.Rectangle) => {
+  const handleRectangleComplete = (rectangle: any) => {
     if (rectangleRef.current) {
-      rectangleRef.current.setMap(null);
+      if (typeof rectangleRef.current.remove === 'function') {
+        rectangleRef.current.remove();
+      }
       rectangleRef.current = null;
     }
     rectangleRef.current = rectangle;
     setRectangleActive(true);
-    setDrawingMode(null); // Disable further drawing
     // Save bounds
     const bounds = rectangle.getBounds();
     if (!bounds) return;
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
-    setAreaBounds({
-      north: ne.lat(),
-      south: sw.lat(),
-      east: ne.lng(),
-      west: sw.lng(),
-    });
+    setAreaBounds([
+      [sw.lat, sw.lng],
+      [ne.lat, ne.lng],
+    ]);
     setHasSearched(true);
   };
 
