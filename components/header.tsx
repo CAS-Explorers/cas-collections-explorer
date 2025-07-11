@@ -31,3 +31,4 @@ export function Header() {
     </header>
   );
 }
+//linter errors changed
