@@ -15,6 +15,8 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+import 'leaflet-draw';
+
 
 // Define the MapViewProps type
 export type MapViewProps = {
